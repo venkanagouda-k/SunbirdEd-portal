@@ -7,6 +7,10 @@ import { map, catchError } from 'rxjs/operators';
 import { forkJoin, of, throwError } from 'rxjs';
 import { Router, ActivatedRoute } from '@angular/router';
 import * as _ from 'lodash-es';
+import { QuestionListComponent  } from '../question-list/question-list.component';
+import { ContentUploaderComponent } from '../content-uploader/content-uploader.component';
+import {QuestionPreviewComponent} from '../question-preview/question-preview.component';
+import {QuestionCreationHeaderComponent} from '../question-creation-header/question-creation-header.component'
 
 @Component({
   selector: 'app-chapter-list',
@@ -19,12 +23,23 @@ export class ChapterListComponent implements OnInit, OnChanges {
   @Input() topicList: any;
   @Input() role: any;
   @Output() selectedQuestionTypeTopic = new EventEmitter<any>();
+  @Output() selectedTemplate = new EventEmitter<any>();
   @Input() selectedSchool: any;
 
   public textBookChapters: Array<any> = [];
   private questionType: Array<any> = [];
   private textBookMeta: any;
   public hierarchyObj = {};
+  public collectionHierarchy: any;
+  public templateDetails: any = {};
+  public selectedChapter;
+  public inputs: any;
+  public outputs: any;
+  public contentData: any;
+  selectedComponentHeader;
+  inputsHeader;
+  outputsHeader;
+  selectedComponent;
 
   private questionTypeName = {
     vsa: 'Very Short Answer',
@@ -33,13 +48,47 @@ export class ChapterListComponent implements OnInit, OnChanges {
     mcq: 'Multiple Choice Question',
     curiosity: 'Curiosity Question'
   };
+  private creationComponentsList = {
+    ExplanationResource: ContentUploaderComponent,
+    ExperientialResource: ContentUploaderComponent,
+    PracticeQuestionSet: QuestionListComponent,
+    CuriosityQuestionSet: QuestionListComponent,
+    ContentPreview: QuestionPreviewComponent,
+    ContentHeader: QuestionCreationHeaderComponent
+  };
+
   telemetryImpression = {};
   private labels: Array<string>;
   public collectionData;
   showLoader = true;
   showError = false;
+  showUpload = false;
+  showResourceTemplatePopup = false;
   public routerQuestionCategory: any;
   public questionPattern: Array<any> = [];
+  public configResourceList = [{
+    name: 'Explanation',
+    contentType: 'ExplanationResource',
+    mimeType: ['application/pdf'],
+    filesAccepted: 'pdf',
+    filesize: '50'
+  }, {
+    name: 'Experimental',
+    contentType: 'ExperientialResource',
+    mimeType: ['video/mp4', 'video/webm', 'video/x-youtube'],
+    filesAccepted: 'mp4, webm, youtube',
+    filesize: '50'
+  }, {
+    name: 'Practice Sets',
+    contentType: 'PracticeQuestionSet',
+    mimeType: ['application/vnd.ekstep.ecml-archive'],
+    questionCategories: ['vsa', 'sa', 'la', 'mcq']
+  }, {
+    name: 'Curiosity',
+    contentType: 'CuriosityQuestionSet',
+    mimeType: ['application/vnd.ekstep.ecml-archive'],
+    questionCategories: ['curiosity']
+  }];
   constructor(public publicDataService: PublicDataService, private configService: ConfigService,
     private userService: UserService, public actionService: ActionService, public telemetryService: TelemetryService, private cbseService: CbseProgramService,
     public toasterService: ToasterService, public router: Router, public activeRoute: ActivatedRoute) {
@@ -76,8 +125,8 @@ export class ChapterListComponent implements OnInit, OnChanges {
       }
     };
     this.getCollectionHierarchy(this.selectedAttributes.textbook);
-    //clearing the selected questionId when user comes back from question list
-    delete this.selectedAttributes["questionList"];
+    // clearing the selected questionId when user comes back from question list
+    delete this.selectedAttributes['questionList'];
   }
   ngOnChanges(changed: any) {
     this.labelsHandler();
@@ -107,6 +156,7 @@ export class ChapterListComponent implements OnInit, OnChanges {
         hierarchy = this.getHierarchyObj(this.collectionData);
         this.selectedAttributes.hierarchyObj = { hierarchy };
         const textBookMetaData = [];
+         this.collectionHierarchy =  this.getUnitWithChildren(this.collectionData.children);
         _.forEach(this.collectionData.children, data => {
 
           if (data.topic && data.topic[0]) {
@@ -141,6 +191,27 @@ export class ChapterListComponent implements OnInit, OnChanges {
       });
   }
 
+  getUnitWithChildren(data) {
+    const self = this;
+    const tree = data.map(child => {
+      const treeItem = {
+        identifier: child.identifier,
+        name: child.name,
+        contentType: child.contentType,
+        topic: child.topic
+      };
+      const textbookUnit = _.find(child.children, ['contentType', 'TextBookUnit']);
+      if (child.children) {
+        const treeUnit =  self.getUnitWithChildren(child.children);
+        const treeChildren = treeUnit.filter(item => item.contentType === 'TextBookUnit');
+        const treeLeaf = treeUnit.filter(item => item.contentType !== 'TextBookUnit');
+        treeItem['children'] = (treeChildren.length > 0) ? treeChildren : null;
+        treeItem['leaf'] = (treeLeaf.length > 0) ? treeLeaf : null;
+      }
+      return treeItem;
+    });
+    return tree;
+  }
   public getHierarchyObj(data) {
     const instance = this;
     if (data.identifier) {
@@ -152,11 +223,12 @@ export class ChapterListComponent implements OnInit, OnChanges {
         }),
         'root': data.contentType === 'TextBook' ? true : false
       };
-
+      if(data.children){
       _.forEach(data.children, (collection) => {
         instance.getHierarchyObj(collection);
       });
     }
+  }
 
     return this.hierarchyObj;
   }
@@ -298,6 +370,75 @@ export class ChapterListComponent implements OnInit, OnChanges {
       }));
   }
 
+  public openPopup(e) {
+    e.stopPropagation();
+    this.showResourceTemplatePopup = true;
+  }
+
+  public selectedChapterHandler(event) {
+    console.log(event);
+    this.showResourceTemplatePopup = event.showModal;
+    this.selectedChapter = event.unitIdentifier;
+  }
+
+  handleTemplateSelection(event) {
+    this.showResourceTemplatePopup = false;
+    if (event.type === 'submit') {
+      this.templateDetails = _.find(this.configResourceList, function(o) {
+        return o.contentType === event.template;
+      });
+      if(_.indexOf(this.templateDetails.mimeType, 'application/vnd.ekstep.ecml-archive') < 0){
+        this.showUpload = true;
+      } else {
+        this.showUpload = false;
+      }
+      // this.selectedTemplate.emit({
+      //   template: this.templateDetails,
+      //   selectedChapterId: this.selectedChapter
+      // });
+      this.openSelectedTemplate();
+    }
+  }
+
+  openSelectedTemplate(){
+    this.selectedComponent = this.creationComponentsList[this.templateDetails.contentType];
+    this.outputs = {
+      contentDataHandler: (event) => {
+        if (event.component === 'none'){
+          return delete this.selectedComponent;
+        }
+        this.contentData =  event.contentData;
+        this.selectedComponent = this.creationComponentsList[event.component];
+        this.selectedComponentHeader = this.creationComponentsList['ContentHeader'];
+        this.inputs = {
+          questionMetaData: this.contentData,
+          selectedAttributes: this.selectedAttributes
+        };
+        this.inputsHeader = {
+          resourceType: 'uploadContent',
+          role: this.selectedAttributes.currentRole,
+          questionMetaData: this.contentData,
+          questionSelectionStatus: 'review',
+          rejectComment: 'Bad syntax',
+          disableSubmission: false
+        }
+      }
+    };
+
+    this.inputs = {
+      templateDetails: this.templateDetails,
+      selectedAttributes: this.selectedAttributes
+    }
+
+    this.outputsHeader = {
+      buttonType: ()=>{
+
+      },
+      questionStatus: ()=>{
+
+      }
+    }
+  }
   emitQuestionTypeTopic(type, topic, topicIdentifier, resourceIdentifier, resourceName) {
     this.selectedQuestionTypeTopic.emit({
       'questionType': type,

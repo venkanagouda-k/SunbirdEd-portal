@@ -7,6 +7,7 @@ import {
   CollectionTreeComponent, FancyTreeComponent, CollectionPlayerMetadataComponent,
   ContentRatingComponent
 } from './components';
+//import { GenericEditorComponent} from '../workspace/components/content-editors/generic-editor/generic-editor.component'
 import { SharedModule } from '@sunbird/shared';
 @NgModule({
   imports: [

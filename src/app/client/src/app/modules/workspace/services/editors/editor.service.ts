@@ -9,7 +9,9 @@ import { WorkSpaceService } from './../work-space/workspace.service';
 /**
  * Service to provides CRUD methods to make content api request by extending DataService.
  */
-@Injectable()
+@Injectable({
+    providedIn: 'root'
+})
 export class EditorService {
     /**
      * base Url for content api

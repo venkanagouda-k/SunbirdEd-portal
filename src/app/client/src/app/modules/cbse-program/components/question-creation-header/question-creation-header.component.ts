@@ -13,6 +13,7 @@ export class QuestionCreationHeaderComponent implements OnInit, OnChanges {
   public reviewerCommentModal = false;
   public dummySelectionStatus: any;
   @Input() role: any;
+  @Input() resourceType: any;
   @Input() questionMetaData: any;
   @Input() questionSelectionStatus: any;
   @Input() rejectComment: any;

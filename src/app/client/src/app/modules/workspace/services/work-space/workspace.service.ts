@@ -9,7 +9,9 @@ import { IDeleteParam } from '../../interfaces/delteparam';
 import { Router } from '@angular/router';
 import * as _ from 'lodash-es';
 import { CacheService } from 'ng2-cache-service';
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class WorkSpaceService {
   /**
   * reference of config service.

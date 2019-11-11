@@ -14,16 +14,21 @@ import { throwError, Observable } from 'rxjs';
 })
 export class ContentUploaderComponent implements OnInit, AfterViewInit {
   @ViewChild('modal') modal;
-  @ViewChild('fineUploaderUI') fineUploaderUI : ElementRef;
+  @ViewChild('fineUploaderUI') fineUploaderUI: ElementRef;
+  @ViewChild('qq-upload-actions') actionButtons: ElementRef;
   @Input() selectedAttributes: any;
+  @Input() templateDetails: any;
   @Output() uploadedContentMeta = new EventEmitter<any>();
+  @Output() contentDataHandler = new EventEmitter<any>();
   uploader;
+  loading;
   contentURL;
 
   constructor(public toasterService: ToasterService, private userService: UserService,private publicDataService: PublicDataService,public actionService: ActionService) { }
 
   ngOnInit() {
-    
+    console.log(this.selectedAttributes);
+    console.log(this.templateDetails);
     this.uploader = new FineUploader({
       element: document.getElementById('upload-content-div'),
       template: 'qq-template-validation',
@@ -33,7 +38,7 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
         endpoint: '/assets/uploads'
       },
       validation: {
-        allowedExtensions: ['pdf', 'epub', 'mp4', 'h5p', 'zip', 'webm'],
+        allowedExtensions: (this.templateDetails.filesAccepted.length === 3) ? this.templateDetails.filesAccepted.split(" ") : this.templateDetails.filesAccepted.split(", "),
         itemLimit: 1,
         sizeLimit: 52428800 // 50 MB = 50 * 1024 * 1024 bytes
       },
@@ -41,10 +46,10 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
         sizeError: "{file} is too large, maximum file size is 50MB."
       },
       callbacks: {
-      onStatusChange: ()=>{
+      onStatusChange: () => {
 
       },
-      onSubmit: ()=>{
+      onSubmit: () => {
        this.uploadContent();
       }
       }
@@ -58,20 +63,20 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
   uploadContent(){
 
     if (this.uploader.getFile(0) == null && !this.contentURL) {
-      this.toasterService.error('URL or File is required to upload')
+      this.toasterService.error('URL or File is required to upload');
       return;
   }
-  var fileUpload = false;
+  let fileUpload = false;
   if (this.uploader.getFile(0) != null) {
       fileUpload = true;
   }
-  var mimeType = fileUpload ? this.detectMimeType(this.uploader.getName(0)) : this.detectMimeType(this.contentURL);
+  let mimeType = fileUpload ? this.detectMimeType(this.uploader.getName(0)) : this.detectMimeType(this.contentURL);
   if (!mimeType) {
-      this.toasterService.error('Invalid content type (supported type: pdf, epub, h5p, mp4, youtube, html-zip, webm, whitelisted-domain)')
+      this.toasterService.error('Invalid content type (supported type: pdf, epub, h5p, mp4, youtube, html-zip, webm, whitelisted-domain)');
       //$scope.showLoader(false);
       return;
   } else if(mimeType === 'video/x-youtube') {
-      var option = {
+      const option = {
         url:'asset/v3/validate?field=license',
         data: {
            "request" : {
@@ -81,16 +86,16 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
                }
            }
         }
-      }
-      this.actionService.post(option).pipe(catchError(err=>{
+      };
+      this.actionService.post(option).pipe(catchError(err => {
         return throwError(err)
-      })).subscribe(res=>{
+      })).subscribe(res => {
         this.createNewContent(fileUpload, mimeType);
-      })
+      });
   } else {
       this.createNewContent(fileUpload, mimeType);
   }
-  
+
 
   }
 
@@ -107,30 +112,30 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
               content: {
                   "name": "Untitled Content",
                   'code': UUID.UUID(),
-                  "mimeType": mimeType,
-                  "createdBy": this.userService.userid,
+                  'mimeType': mimeType,
+                  'createdBy': this.userService.userid,
                   //"createdFor": ecEditor._.keys(ecEditor.getContext('user').organisations),
                   "contentType": "Resource",
-                  "resourceType": "Learn",
+                  'resourceType': "Learn",
                   "creator": creator,
                   "framework": this.selectedAttributes.framework,
                   "organisation":this.selectedAttributes.onBoardSchool ? [this.selectedAttributes.onBoardSchool] : [],
-    
+
               }
           }
       }
-      }
-    this.publicDataService.post(option).pipe(catchError(err=>{
+      };
+    this.publicDataService.post(option).pipe(catchError(err => {
       console.log("---> content creation: ", err)
       return throwError('');
-    }),map(res=>{ return res.result}))
-    .subscribe(result=>{
+    }),map(res => res.result))
+    .subscribe(result => {
       console.log("---> content creation: ", result)
       this.uploadByURL(fileUpload, mimeType, result.node_id);
-    })
+    });
   }
 
-  uploadByURL(fileUpload, mimeType, contentId){
+  uploadByURL(fileUpload, mimeType, contentId) {
   if (fileUpload) {
       this.uploadFile(mimeType, contentId);
   } else {
@@ -139,13 +144,15 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
   }
 
   uploadFile(mimeType, contentId){
-    var contentType = mimeType;
+    let contentType = mimeType;
+    document.getElementById("qq-upload-actions").style.display = "none";
+    this.loading = true;
     if (mimeType === 'application/vnd.ekstep.h5p-archive' || mimeType === 'application/vnd.ekstep.html-archive') {
         contentType = 'application/octet-stream';
     }
 
     let option = {
-      url: 'content/v3/upload/url/'+contentId,
+      url: 'content/v3/upload/url/' + contentId,
       data: {
         request: {
           content: {
@@ -153,72 +160,81 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
           }
         }
       }
-      
-    }
-    this.actionService.post(option).pipe(catchError(err=>{
+
+    };
+    this.actionService.post(option).pipe(catchError(err => {
       return throwError(console.log("----> presigned value: ",err))
-    })).subscribe(res=>{
+    })).subscribe(res => {
       console.log("----> presined value: ",res.result);
-      var signedURL = res.result.pre_signed_url;
-                var config = {
+      let signedURL = res.result.pre_signed_url;
+                let config = {
                     processData: false,
                     contentType: contentType,
                     headers: {
                         'x-ms-blob-type': 'BlockBlob'
                     }
                 }
-              
-          this.uploadToBlob(signedURL,config).subscribe(res=>{
-            let fileURL = signedURL.split('?')[0];
+
+          this.uploadToBlob(signedURL,config).subscribe(res => {
+            const fileURL = signedURL.split('?')[0];
             this.updateContentWithURL(fileURL, mimeType, contentId);
-            
-           
+
+
           })
-    })
+    });
   }
 
-  uploadToBlob(signedURL, config):Observable<ServerResponse>{
-    return this.actionService.http.put(signedURL, this.uploader.getFile(0), config).pipe(catchError(err=>{
-      return throwError(console.log("blob--->",err))
-    }),map(data=>{ return data}));
+  uploadToBlob(signedURL, config):Observable<any>{
+    return this.actionService.http.put(signedURL, this.uploader.getFile(0), config).pipe(catchError(err => {
+      return throwError(console.log("blob--->",err));
+    }),map(data => data));
   }
 
   updateContentWithURL(fileURL, mimeType, contentId){
-    var data = new FormData();
+    const data = new FormData();
     data.append("fileUrl", fileURL);
     data.append("mimeType", mimeType);
-    var config = {
+    const config = {
         enctype: 'multipart/form-data',
         processData: false,
         contentType: false,
         cache: false
-    }
-    let option = {
-      url: 'content/v3/upload/'+contentId,
+    };
+    const option = {
+      url: 'content/v3/upload/' + contentId,
       data: data,
       param: config
-    }
-    this.actionService.post(option).pipe(catchError(err=>{
+    };
+    this.actionService.post(option).pipe(catchError(err => {
       return throwError(console.log("-->> finalUpload", err))
-    })).subscribe(res=>{
+    })).subscribe(res => {
       console.log("-->>finalUpload",res);
       this.getUploadedContentMeta(contentId);
-    })
+    });
   }
   getUploadedContentMeta(contentId){
-   let option = {
-     url: 'content/v3/read/'+contentId
-   }
-   this.actionService.get(option).pipe(map(data=>{ return data.result.content}), catchError(err=>{
+   const option = {
+     url: 'content/v3/read/' + contentId
+   };
+   this.actionService.get(option).pipe(map(data => data.result.content), catchError(err => {
      return throwError('')
-   })).subscribe(res=>{
-     this.uploadedContentMeta.emit(res);
-     this.modal.deny();
-   })
+   })).subscribe(res => {
+     this.closeModal('ContentPreview', res);
+   });
+  }
+
+  public closeModal(component, res?) {
+    if (this.modal && this.modal.deny) {
+      this.modal.deny();
+      this.contentDataHandler.emit({
+        contentData: res,
+        component: component
+      });
+    }
   }
 
   detectMimeType(fileName) {
-    var extn = fileName.split('.').pop()
+    const extn = fileName.split('.').pop();
     switch (extn) {
         case 'pdf':
             return 'application/pdf';
@@ -238,7 +254,7 @@ export class ContentUploaderComponent implements OnInit, AfterViewInit {
 }
 
 validateUploadURL(url){
-  var response = '';
+  let response = '';
   if(this.isValidURL(url) && this.isWhitelistedURL(url)){
       if(this.validateYoutubeURL(url)){
           response = 'video/x-youtube';
@@ -250,7 +266,7 @@ validateUploadURL(url){
 }
 
 isValidURL(url){
-  var res = url.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g);
+  const res = url.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g);
   if(res == null) {
       return false;
   } else {
@@ -259,12 +275,12 @@ isValidURL(url){
 }
 
 isWhitelistedURL(url){
-  var domainList = this.getWhitelistedDomains();
-  var isWhitelistedURL = false;
-  var hostName = this.getHostName(url);
+  let domainList = this.getWhitelistedDomains();
+  let isWhitelistedURL = false;
+  let hostName = this.getHostName(url);
   if (hostName) {
-      for (let domain of domainList){
-          if(hostName[2] === domain || (hostName[1]+hostName[2]) === domain ){ //the whitelisted domain can be either youtube.com or www.youtube.com 
+      for (const domain of domainList) {
+          if(hostName[2] === domain || (hostName[1] + hostName[2]) === domain ) { // the whitelisted domain can be either youtube.com or www.youtube.com
               isWhitelistedURL = true;
               break;
           }
@@ -273,8 +289,8 @@ isWhitelistedURL(url){
   return isWhitelistedURL;
 }
 
-getHostName(url){ 
-  var match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
+getHostName(url) {
+  const match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
   if (match != null && match.length > 2 && typeof match[2] === 'string' && match[2].length > 0) {
       return match;
   } else {
@@ -282,8 +298,8 @@ getHostName(url){
   }
 }
 
-getWhitelistedDomains(){
-  var domainList = ['youtube.com','youtu.be'];
+getWhitelistedDomains() {
+  const domainList = ['youtube.com', 'youtu.be'];
   // domains = ''//ecEditor.getConfig('extContWhitelistedDomains');
   // if(typeof domains !== 'undefined' && domains){
   //     domainList = domains.split(',');
@@ -292,12 +308,12 @@ getWhitelistedDomains(){
 }
 
 validateYoutubeURL = function(fileName) {
-  var hostName = this.getHostName(fileName);
+  const hostName = this.getHostName(fileName);
   if (hostName && hostName[2] === 'youtube.com' || hostName[2] === 'youtu.be') {
       return true;
   }
   return false;
-}
+};
 
 
 }
