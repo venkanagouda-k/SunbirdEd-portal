@@ -6,7 +6,7 @@ import * as $ from 'jquery';
 import 'datatables.net';
 import * as _ from 'lodash-es';
 import { ExportToCsv } from 'export-to-csv';
-import { forkJoin, throwError } from 'rxjs';
+import { forkJoin, throwError, Subscription } from 'rxjs';
 import { CbseProgramService } from '../../services';
 
 @Component({
@@ -30,6 +30,8 @@ export class DashboardComponent implements OnInit {
   selectedCategory;
   tableData;
   firstcolumnHeader;
+  textbookUnitLevel = ['L1', 'L2', 'L3', 'L4'];
+  contentTypes = ['Practice Set', 'Explanation Resource Set', 'Experimential Resource Set', 'Lesson Plans'];
   questionTypeName = {
     vsa: 'Very Short Answer',
     sa: 'Short Answer',
@@ -37,13 +39,21 @@ export class DashboardComponent implements OnInit {
     mcq: 'Multiple Choice Question',
     curiosityquestion: 'Curiosity Question'
   };
+  subscription: Subscription;
+  textbookList;
 
   constructor(public publicDataService: PublicDataService, private configService: ConfigService,
-    public actionService: ActionService, public toasterService: ToasterService,private cbseService: CbseProgramService,) { }
+    public actionService: ActionService, public toasterService: ToasterService,private cbseService: CbseProgramService,) { 
+      // this.subscription = this.cbseService.getSharedData({name: 'textbook list'}).subscribe(data=>{
+      //   data ? this.textbookList = data : this.textbookList = []; 
+      // }, err=>{
+      //   console.log(err);
+      // })
+    }
 
   ngOnInit() {
 
-    this.reports = [{ name: 'Question Bank Status' }, { name: 'Textbook Status' }];
+    this.reports = [{ name: 'Question Bank Status' }, { name: 'Textbook Status' }, { name: 'Program Level Report Status' }];
     this.selectedReport = this.reports[0].name;
     this.firstcolumnHeader = 'Topic Name'
     //should not change the order of below array
@@ -134,7 +144,7 @@ export class DashboardComponent implements OnInit {
 
   public searchQuestionsByType(questionType?: string) {
     const req = {
-      url: `${this.configService.urlConFig.URLS.COMPOSITE.SEARCH}`,
+      url: this.configService.urlConFig.URLS.COMPOSITE.SEARCH,
       data: {
         'request': {
           "filters": {
@@ -279,6 +289,18 @@ export class DashboardComponent implements OnInit {
     csvExporter.generateCsv(this.tableData);
   }
 
+  generateProgramLevelData(){
+    this.cbseService.getSharedData({name: 'textbook list'}).subscribe(data=>{
+        data ? this.textbookList = data : this.textbookList = []; 
+      }, err=>{
+        console.log(err);
+      });
+      _.forEach(this.textbookList,(book)=>{
+
+      })
+    console.log(this.textbookList);
+  }
+
   generateTableData(report) {
     let Tdata
     if (report === this.reports[0].name) {
@@ -294,6 +316,20 @@ export class DashboardComponent implements OnInit {
       this.tableData = Tdata;
 
     } else if (report === this.reports[1].name) {
+      Tdata = _.map(this.textBookChapters, (item) => {
+        let result = {};
+        result[this.firstcolumnHeader] = item.name + "(" + item.topic + ")";
+        result[this.questionTypeName[this.questionType[0]]] = (item[this.questionType[0]] && item[this.questionType[0]].published) ? item[this.questionType[0]].published : 0;
+        result[this.questionTypeName[this.questionType[1]]] = (item[this.questionType[1]] && item[this.questionType[1]].published) ? item[this.questionType[1]].published : 0;
+        result[this.questionTypeName[this.questionType[2]]] = (item[this.questionType[2]] && item[this.questionType[2]].published) ? item[this.questionType[2]].published : 0;
+        result[this.questionTypeName[this.questionType[3]]] = (item[this.questionType[3]] && item[this.questionType[3]].published) ? item[this.questionType[3]].published : 0;
+        result[this.questionTypeName[this.questionType[4]]] = (item[this.questionType[4]] && item[this.questionType[4]].published) ? item[this.questionType[4]].published : 0;
+        return result;
+      });
+      this.tableData = Tdata;
+    }
+    else if (report === this.reports[2].name) {
+      this.generateProgramLevelData();
       Tdata = _.map(this.textBookChapters, (item) => {
         let result = {};
         result[this.firstcolumnHeader] = item.name + "(" + item.topic + ")";
@@ -324,12 +360,19 @@ export class DashboardComponent implements OnInit {
     }
     this.showLoader = false;
     if (report === this.reports[0].name) {
+      this.firstcolumnHeader = 'Topic Name'
       setTimeout(() => {
         $('#questionBank').DataTable(dtOptions);
       }, 0);
     } else if (report === this.reports[1].name) {
+      this.firstcolumnHeader = 'Topic Name'
       setTimeout(() => {
         $('#TextbookStatus').DataTable(dtOptions);
+      }, 0);
+    } else if (report === this.reports[2].name) {
+      this.firstcolumnHeader = 'Text-book Name'
+      setTimeout(() => {
+        $('#ProgramLevelReportStatus').DataTable(dtOptions);
       }, 0);
     }
   }

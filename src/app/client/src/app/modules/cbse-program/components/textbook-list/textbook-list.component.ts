@@ -68,6 +68,9 @@ export class TextbookListComponent implements OnInit {
       });
 
       this.textbookList = this.utilService.getDataForCard(filteredTextbook, constantData, dynamicFields, metaData);
+      //Data sharing between components using service.ts
+      this.cbseService.setSharedData({name:'textbook list', list: this.textbookList}); 
+
       this.telemetryInteract = {
         id: 'content_card',
         type: 'click',

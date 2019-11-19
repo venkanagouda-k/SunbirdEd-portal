@@ -3,7 +3,7 @@ import { ConfigService, ToasterService } from '@sunbird/shared';
 import { TelemetryService } from '@sunbird/telemetry';
 import { ActionService } from '@sunbird/core';
 import { map, mergeMap, catchError, tap } from 'rxjs/operators';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, Observable, BehaviorSubject } from 'rxjs';
 import * as _ from 'lodash-es';
 import { themeObject, stageObject, questionSetObject, questionObject, questionSetConfigCdataObject } from './data';
 import { UUID } from 'angular2-uuid';
@@ -11,7 +11,21 @@ import { UUID } from 'angular2-uuid';
   providedIn: 'root'
 })
 export class CbseProgramService {
+  private textbookListt = new BehaviorSubject([]);
   constructor(private configService: ConfigService, public actionService: ActionService, public telemetryService: TelemetryService, public toasterService: ToasterService) { }
+
+  //use following methods for data sharing to any components
+  setSharedData(data){
+    if(data.name = 'textbook list'){
+      this.textbookListt.next(data.list);
+    }
+  }
+
+  getSharedData(data): Observable<any>{
+    if(data.name === 'textbook list'){
+      return this.textbookListt.asObservable();
+    }
+   }
 
   getQuestionDetails(questionId) {
     const req = {

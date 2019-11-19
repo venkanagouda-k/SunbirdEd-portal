@@ -74,5 +74,30 @@
   </table>
 </div>
 
+<div *ngIf="selectedReport === 'Program Level Report Status' && !showLoader">
+    <table class="sb-table sb-table sb-table-hover sb-table-sortable" id='ProgramLevelReportStatus'>
+      <thead class="sb-table-header heading-large">
+        <tr>
+          <th> {{firstcolumnHeader}} </th>
+          <th attr.data-tooltip="{{headersTooltip[0].tip}}" *ngFor="let level of textbookUnitLevel"> {{level}}
+          </th>
+          <th attr.data-tooltip="{{headersTooltip[0].tip}}" *ngFor="let type of contentTypes"> {{type}}
+            </th>
+  
+        </tr>
+      </thead>
+      <tbody class="sb-table-body body-large" >
+        <tr *ngFor="let chapter of tableData">
+          <td>{{chapter['Topic Name']}}</td>
+          <td>{{chapter[questionTypeName[questionType[0]]] ? 1 : 0}}({{chapter[questionTypeName[questionType[0]]]}})</td>
+          <td>{{chapter[questionTypeName[questionType[1]]] ? 1 : 0}}({{chapter[questionTypeName[questionType[1]]]}})</td>
+          <td>{{chapter[questionTypeName[questionType[2]]] ? 1 : 0}}({{chapter[questionTypeName[questionType[2]]]}})</td>
+          <td>{{chapter[questionTypeName[questionType[3]]] ? 1 : 0}}({{chapter[questionTypeName[questionType[3]]]}})</td>
+          <td>{{chapter[questionTypeName[questionType[4]]] ? 1 : 0}}({{chapter[questionTypeName[questionType[4]]]}})</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
 <br>
 <app-loader *ngIf='showLoader'></app-loader>
