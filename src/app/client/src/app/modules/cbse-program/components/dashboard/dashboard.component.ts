@@ -8,6 +8,7 @@ import * as _ from 'lodash-es';
 import { ExportToCsv } from 'export-to-csv';
 import { forkJoin, throwError, Subscription } from 'rxjs';
 import { CbseProgramService } from '../../services';
+import { async } from '@angular/core/testing';
 
 @Component({
   selector: 'app-dashboard',
@@ -24,14 +25,13 @@ export class DashboardComponent implements OnInit {
   textBookChapters;
   reports;
   selectedReport;
-  statusLabel
+  statusLabel;
   headersTooltip: Array<any> = [];
-  showLoader: boolean = false;
+  showLoader = false;
   selectedCategory;
   tableData;
-  firstcolumnHeader;
-  textbookUnitLevel = ['L1', 'L2', 'L3', 'L4'];
-  contentTypes = ['Practice Set', 'Explanation Resource Set', 'Experimential Resource Set', 'Lesson Plans'];
+  UnitLevels = ['L1', 'L2', 'L3', 'L4'];
+  contentTypes = ['Practice Set', 'Resource', 'Lesson Plans'];
   questionTypeName = {
     vsa: 'Very Short Answer',
     sa: 'Short Answer',
@@ -41,50 +41,54 @@ export class DashboardComponent implements OnInit {
   };
   subscription: Subscription;
   textbookList;
+  collectionHierarchy;
 
   constructor(public publicDataService: PublicDataService, private configService: ConfigService,
-    public actionService: ActionService, public toasterService: ToasterService,private cbseService: CbseProgramService,) { 
-      // this.subscription = this.cbseService.getSharedData({name: 'textbook list'}).subscribe(data=>{
-      //   data ? this.textbookList = data : this.textbookList = []; 
-      // }, err=>{
-      //   console.log(err);
-      // })
-    }
+    public actionService: ActionService, public toasterService: ToasterService, private cbseService: CbseProgramService, ) {}
 
   ngOnInit() {
 
     this.reports = [{ name: 'Question Bank Status' }, { name: 'Textbook Status' }, { name: 'Program Level Report Status' }];
     this.selectedReport = this.reports[0].name;
-    this.firstcolumnHeader = 'Topic Name'
-    //should not change the order of below array
+    // should not change the order of below array
     this.questionType = ['vsa', 'sa', 'la', 'mcq', 'curiosityquestion'];
-    //default selected category
+    // default selected category
     this.selectedCategory = 'vsa';
-    this.headersTooltip = [{ tip: "No. of resource (no. of published questions)" }];
-    this.statusLabel = [{ name: 'Up For Review', tip: "No. of questions pending for review" }, { name: "Rejected", tip: 'No. of questions rejected by reviewer' }, { name: 'Accepted', tip: 'No. of questions approved by reviewer' }, { name: 'Published', tip: 'No. of questions published by publisher' }];
+    this.headersTooltip = [{ tip: 'No. of resource (no. of published questions)' }];
+    this.statusLabel = [{ name: 'Up For Review', tip: 'No. of questions pending for review' }, { name: 'Rejected', tip: 'No. of questions rejected by reviewer' }, { name: 'Accepted', tip: 'No. of questions approved by reviewer' }, { name: 'Published', tip: 'No. of questions published by publisher' }];
     this.getCollectionHierarchy(this.selectedAttributes.textbook);
   }
 
   changeQuestionCategory(type) {
     this.showLoader = true;
-    //refresh datatable values and re-initializing it, setTimeOut is given to show loader on change of data
+    // refresh datatable values and re-initializing it, setTimeOut is given to show loader on change of data
     setTimeout(() => {
       this.showLoader = false;
-      this.initializeDataTable(this.selectedReport);
+      this.generateTableData(this.selectedReport);
+      // this.initializeDataTable(this.selectedReport);
     }, 500);
     this.selectedCategory = type;
-    this.generateTableData(this.selectedReport);
   }
 
-  public getCollectionHierarchy(identifier: string) {
+  public getCollectionHierarchy(identifier: string, report?: string) {
     let hierarchy;
     const req = {
       url: 'content/v3/hierarchy/' + identifier, // `${this.configService.urlConFig.URLS.COURSE.HIERARCHY}/${identifier}`,
       param: { 'mode': 'edit' }
     };
     this.showLoader = true;
-    this.actionService.get(req).subscribe((response) => {
+    return this.actionService.get(req).subscribe((response) => {
       this.collectionData = response.result.content;
+      if (report === 'Program Level Report Status') {
+        let textBookLevelCount;
+        this.collectionHierarchy = this.getUnitWithChildren(
+          this.collectionData.children
+        );
+        textBookLevelCount = this.getTextbookLevelCount(this.collectionHierarchy);
+        console.log(textBookLevelCount);
+        return textBookLevelCount;
+
+      }
       hierarchy = this.getHierarchyObj(this.collectionData);
       this.selectedAttributes.hierarchyObj = { hierarchy };
       const textBookMetaData = [];
@@ -123,6 +127,103 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  getUnitWithChildren(data) {
+    const self = this;
+    const tree = data.map(child => {
+      const treeItem = {
+        identifier: child.identifier,
+        name: child.name,
+        contentType: child.contentType,
+        topic: child.topic
+      };
+      const textbookUnit = _.find(child.children, [
+        'contentType',
+        'TextBookUnit'
+      ]);
+      if (child.children) {
+        const treeUnit = self.getUnitWithChildren(child.children);
+        const treeChildren = treeUnit.filter(
+          item => item.contentType === 'TextBookUnit'
+        );
+        const treeLeaf = treeUnit.filter(
+          item => item.contentType !== 'TextBookUnit'
+        );
+        treeItem['children'] = treeChildren.length > 0 ? treeChildren : null;
+        treeItem['leaf'] = treeLeaf.length > 0 ? treeLeaf : null;
+      }
+      return treeItem;
+    });
+    return tree;
+  }
+
+  programLevelCount(identifier: string, report?: string) {
+    const req = {
+      url: 'content/v3/hierarchy/' + identifier, // `${this.configService.urlConFig.URLS.COURSE.HIERARCHY}/${identifier}`,
+      param: { 'mode': 'edit' }
+    };
+    this.showLoader = true;
+    return this.actionService.get(req).pipe(map((response) => {
+      this.collectionData = response.result.content;
+      if (report === 'Program Level Report Status') {
+        let textBookLevelCount;
+        this.collectionHierarchy = this.getUnitWithChildren(
+          this.collectionData.children
+        );
+        textBookLevelCount = this.getTextbookLevelCount(this.collectionHierarchy);
+        console.log(textBookLevelCount);
+        return textBookLevelCount;
+
+      }
+    }));
+
+    // subscribe((response) => {
+    //   this.collectionData = response.result.content;
+    //   if(report === 'Program Level Report Status'){
+    //     let textBookLevelCount
+    //     this.collectionHierarchy = this.getUnitWithChildren(
+    //       this.collectionData.children
+    //     );
+    //     textBookLevelCount = this.getTextbookLevelCount(this.collectionHierarchy);
+    //     console.log(textBookLevelCount);
+    //     return textBookLevelCount;
+
+    //   }
+    // });
+  }
+
+  getTextbookLevelCount(collectionHierarchy) {
+    const textbookLevelCount = {
+      L1: 0, L2: 0, L3: 0, L4: 0, collection: 0, Resource: 0, LessonPlan: 0, PracticeQuestionSet: 0, Curiosity: 0
+    };
+    let n = 1;
+    const recursive = (level) => {
+      if (level.contentType === 'TextBookUnit') {
+        textbookLevelCount[`L${n}`]++;
+        if (level.leaf && level.leaf.length > 0) {
+          _.forEach(level.leaf, (resource) => {
+           (resource.contentType === 'Collection') ? textbookLevelCount['collection']++ : null;
+           (resource.contentType === 'Resource') ? textbookLevelCount['Resource']++ : null;
+           (resource.contentType === 'LessonPlan') ? textbookLevelCount['LessonPlan']++ : null;
+           (resource.contentType === 'PracticeQuestionSet') ? textbookLevelCount['PracticeQuestionSet']++ : null;
+           (resource.contentType === 'Curiosity') ? textbookLevelCount['Curiosity']++ : null;
+          });
+        }
+        if (level.children && level.children.length > 0) {
+          n = n + 1;
+          _.forEach(level.children, (child) => {
+            recursive(child);
+          });
+        }
+      }
+    };
+    _.forEach(collectionHierarchy, (level) => {
+      n = 1;
+      recursive(level);
+    });
+    return textbookLevelCount;
+
+  }
+
   public getHierarchyObj(data) {
     const instance = this;
     if (data.identifier) {
@@ -147,23 +248,23 @@ export class DashboardComponent implements OnInit {
       url: this.configService.urlConFig.URLS.COMPOSITE.SEARCH,
       data: {
         'request': {
-          "filters": {
-            "objectType": "AssessmentItem",
+          'filters': {
+            'objectType': 'AssessmentItem',
             'board': this.selectedAttributes.board,
             'framework': this.selectedAttributes.framework,
             'gradeLevel': this.selectedAttributes.gradeLevel,
             'subject': this.selectedAttributes.subject,
             'medium': this.selectedAttributes.medium,
             'programId': this.selectedAttributes.programId,
-            "status": [],
+            'status': [],
             'type': questionType === 'mcq' ? 'mcq' : 'reference',
           },
-          "limit": 0,
-          "aggregations": [
+          'limit': 0,
+          'aggregations': [
             {
-              "l1": "topic",
-              "l2": "category",
-              "l3": "status"
+              'l1': 'topic',
+              'l2': 'category',
+              'l3': 'status'
             }
           ]
         }
@@ -172,11 +273,11 @@ export class DashboardComponent implements OnInit {
 
     return this.publicDataService.post(req).pipe(
       map(res => {
-        let result = []
-        return result = _.get(res, 'result.aggregations[0].values')
+        let result = [];
+        return result = _.get(res, 'result.aggregations[0].values');
       }), catchError((err) => {
-          let errInfo = { errorMsg: 'Questions search by type failed' };
-          return throwError(this.cbseService.apiErrorHandling(err, errInfo))
+          const errInfo = { errorMsg: 'Questions search by type failed' };
+          return throwError(this.cbseService.apiErrorHandling(err, errInfo));
         }));
   }
 
@@ -214,62 +315,62 @@ export class DashboardComponent implements OnInit {
         return publishCount;
       }),
       catchError((err) => {
-        let errInfo = { errorMsg: 'Published Resource search failed' };
-        return throwError(this.cbseService.apiErrorHandling(err, errInfo))
+        const errInfo = { errorMsg: 'Published Resource search failed' };
+        return throwError(this.cbseService.apiErrorHandling(err, errInfo));
       }));
   }
 
   dashboardApi(textBookMetaData) {
     let apiRequest;
-    apiRequest = [this.searchQuestionsByType(), this.searchQuestionsByType('mcq'), ...this.questionType.map(type => this.searchResources(type))]
+    apiRequest = [this.searchQuestionsByType(), this.searchQuestionsByType('mcq'), ...this.questionType.map(type => this.searchResources(type))];
     if (!apiRequest) {
       this.toasterService.error('Please try again by refresh');
     }
     forkJoin(apiRequest).subscribe(data => {
-      let aggregatedData = _.compact(_.concat(data[0], data[1]))
+      const aggregatedData = _.compact(_.concat(data[0], data[1]));
       this.textBookChapters = _.map(textBookMetaData, topicData => {
         const results = { name: topicData.name, topic: topicData.topic, identifier: topicData.identifier };
         _.forEach(aggregatedData, (Tobj) => {
           if (Tobj && Tobj.name === topicData.topic.toLowerCase()) {
             _.forEach(Tobj.aggregations[0].values, (Cobj) => {
-              let modify = _.map(Cobj.aggregations[0].values, (a) => {
-                let temp = {}
+              const modify = _.map(Cobj.aggregations[0].values, (a) => {
+                const temp = {};
                 temp[a.name] = a.count;
                 return temp;
-              })
+              });
 
               results[Cobj.name] = modify.reduce((result, item) => {
-                var key = Object.keys(item)[0];
+                const key = Object.keys(item)[0];
                 result[key] = item[key];
                 return result;
               }, {});
-            })
+            });
           }
-        })
+        });
         return results;
       });
 
-      //Below code to make api call to get published question and to include in the variable 'textBookChapters'
+      // Below code to make api call to get published question and to include in the variable 'textBookChapters'
       _.forEach(this.textBookChapters, (chap) => {
         _.forEach(this.questionType, (type, index) => {
-          let filter_by_category = _.filter(data[index + 2], { name: chap.topic.toLowerCase() })
-          if (chap[type] && filter_by_category.length > 0) Object.assign(chap[type], { 'published': filter_by_category[0].count })
+          const filter_by_category = _.filter(data[index + 2], { name: chap.topic.toLowerCase() });
+          if (chap[type] && filter_by_category.length > 0) { Object.assign(chap[type], { 'published': filter_by_category[0].count }); }
         });
       });
 
       this.generateTableData(this.selectedReport);
-      this.initializeDataTable(this.selectedReport);
+      // this.initializeDataTable(this.selectedReport);
     });
   }
 
   refreshReport() {
-    this.getCollectionHierarchy(this.selectedAttributes.textbook)
+    this.getCollectionHierarchy(this.selectedAttributes.textbook);
   }
 
   downloadReport() {
-    var optional;
+    let optional;
     if (this.selectedReport === this.reports[0].name) {
-      optional = `Selected Category: ${this.questionTypeName[this.selectedCategory]}`
+      optional = `Selected Category: ${this.questionTypeName[this.selectedCategory]}`;
     }
     const options = {
       filename: `${this.selectedReport}`,
@@ -278,7 +379,7 @@ export class DashboardComponent implements OnInit {
       decimalSeparator: '.',
       showLabels: true,
       showTitle: true,
-      title: `Texbook Name: ${this.selectedAttributes.textbookName}, ${optional ? optional : ""}`,
+      title: `Texbook Name: ${this.selectedAttributes.textbookName}, ${optional ? optional : ''}`,
       useTextFile: false,
       useBom: true,
       useKeysAsHeaders: true,
@@ -289,88 +390,93 @@ export class DashboardComponent implements OnInit {
     csvExporter.generateCsv(this.tableData);
   }
 
-  generateProgramLevelData(){
-    this.cbseService.getSharedData({name: 'textbook list'}).subscribe(data=>{
-        data ? this.textbookList = data : this.textbookList = []; 
-      }, err=>{
+  generateProgramLevelData(report) {
+    let apiRequest;
+    this.cbseService.getSharedData({name: 'textbook list'}).subscribe(data => {
+        data ? this.textbookList = data : this.textbookList = [];
+      }, err => {
         console.log(err);
       });
-      _.forEach(this.textbookList,(book)=>{
+       apiRequest = [...this.textbookList.map(book => this.programLevelCount(book.metaData.identifier, report))];
 
-      })
-    console.log(this.textbookList);
+      forkJoin(apiRequest).subscribe(data => {
+        console.log('finalllll', data);
+        let i = 0;
+
+        this.tableData = data.map(book => {
+          console.log('listttt', this.textbookList);
+            book['Textbook Name'] = this.textbookList[i].name;
+            i ++;
+            return book;
+        });
+        this.initializeDataTable(report);
+     });
   }
 
   generateTableData(report) {
-    let Tdata
+    let Tdata;
     if (report === this.reports[0].name) {
       Tdata = _.map(this.textBookChapters, (item) => {
-        let result = {};
-        result[this.firstcolumnHeader] = item.name + "(" + item.topic + ")";
+        const result = {};
+        result['Topic Name'] = item.name + '(' + item.topic + ')';
+        // tslint:disable-next-line:max-line-length
         result[this.statusLabel[0].name] = (item[this.selectedCategory] && item[this.selectedCategory].review) ? item[this.selectedCategory].review : 0;
+        // tslint:disable-next-line:max-line-length
         result[this.statusLabel[1].name] = (item[this.selectedCategory] && item[this.selectedCategory].reject) ? item[this.selectedCategory].reject : 0;
+        // tslint:disable-next-line:max-line-length
         result[this.statusLabel[2].name] = (item[this.selectedCategory] && item[this.selectedCategory].live) ? item[this.selectedCategory].live : 0;
         result[this.statusLabel[3].name] = (item[this.selectedCategory] && item[this.selectedCategory].published) ? item[this.selectedCategory].published : 0;
         return result;
       });
       this.tableData = Tdata;
-
+      this.initializeDataTable(report);
     } else if (report === this.reports[1].name) {
       Tdata = _.map(this.textBookChapters, (item) => {
-        let result = {};
-        result[this.firstcolumnHeader] = item.name + "(" + item.topic + ")";
+        const result = {};
+        result['Topic Name'] = item.name + '(' + item.topic + ')';
+        // tslint:disable-next-line:max-line-length
         result[this.questionTypeName[this.questionType[0]]] = (item[this.questionType[0]] && item[this.questionType[0]].published) ? item[this.questionType[0]].published : 0;
+        // tslint:disable-next-line:max-line-length
         result[this.questionTypeName[this.questionType[1]]] = (item[this.questionType[1]] && item[this.questionType[1]].published) ? item[this.questionType[1]].published : 0;
+        // tslint:disable-next-line:max-line-length
         result[this.questionTypeName[this.questionType[2]]] = (item[this.questionType[2]] && item[this.questionType[2]].published) ? item[this.questionType[2]].published : 0;
+        // tslint:disable-next-line:max-line-length
         result[this.questionTypeName[this.questionType[3]]] = (item[this.questionType[3]] && item[this.questionType[3]].published) ? item[this.questionType[3]].published : 0;
+        // tslint:disable-next-line:max-line-length
         result[this.questionTypeName[this.questionType[4]]] = (item[this.questionType[4]] && item[this.questionType[4]].published) ? item[this.questionType[4]].published : 0;
         return result;
       });
       this.tableData = Tdata;
-    }
-    else if (report === this.reports[2].name) {
-      this.generateProgramLevelData();
-      Tdata = _.map(this.textBookChapters, (item) => {
-        let result = {};
-        result[this.firstcolumnHeader] = item.name + "(" + item.topic + ")";
-        result[this.questionTypeName[this.questionType[0]]] = (item[this.questionType[0]] && item[this.questionType[0]].published) ? item[this.questionType[0]].published : 0;
-        result[this.questionTypeName[this.questionType[1]]] = (item[this.questionType[1]] && item[this.questionType[1]].published) ? item[this.questionType[1]].published : 0;
-        result[this.questionTypeName[this.questionType[2]]] = (item[this.questionType[2]] && item[this.questionType[2]].published) ? item[this.questionType[2]].published : 0;
-        result[this.questionTypeName[this.questionType[3]]] = (item[this.questionType[3]] && item[this.questionType[3]].published) ? item[this.questionType[3]].published : 0;
-        result[this.questionTypeName[this.questionType[4]]] = (item[this.questionType[4]] && item[this.questionType[4]].published) ? item[this.questionType[4]].published : 0;
-        return result;
-      });
-      this.tableData = Tdata;
+      this.initializeDataTable(report);
+    } else if (report === this.reports[2].name) {
+      this.generateProgramLevelData(report);
+
     }
   }
 
   onReportChange(report) {
     if (report !== this.selectedReport) {
       this.generateTableData(report);
-      this.initializeDataTable(report);
     }
   }
 
   initializeDataTable(report) {
-    let dtOptions = {
+    const dtOptions = {
       paging: false,
       searching: false,
       info: false,
       destroy: true,
-    }
+    };
     this.showLoader = false;
     if (report === this.reports[0].name) {
-      this.firstcolumnHeader = 'Topic Name'
       setTimeout(() => {
         $('#questionBank').DataTable(dtOptions);
       }, 0);
     } else if (report === this.reports[1].name) {
-      this.firstcolumnHeader = 'Topic Name'
       setTimeout(() => {
         $('#TextbookStatus').DataTable(dtOptions);
       }, 0);
     } else if (report === this.reports[2].name) {
-      this.firstcolumnHeader = 'Text-book Name'
       setTimeout(() => {
         $('#ProgramLevelReportStatus').DataTable(dtOptions);
       }, 0);
