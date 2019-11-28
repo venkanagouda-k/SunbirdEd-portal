@@ -18,10 +18,13 @@
 
 <div *ngIf='programDetails?.userDetails' class="ui segment no-bg m-0 w-300" style="margin-top:2px !important;">
   <div class="sb-cbse-homepage-container">
-    <div *ngIf="stages[currentStage] === 'chooseClass'">
+    <div *ngIf="stages[currentStage] === 'chooseClass' && !showDashboard">
       <app-select-textbook [selectedAttributes]="selectedAttributes" [config]="programDetails.config"
         (selectedClassSubjectEvent)="selectedClassSubjectHandler($event)"></app-select-textbook>
     </div>
+    <div *ngIf="stages[currentStage] === 'chooseClass' && showDashboard">
+        <app-dashboard [selectedAttributes]="selectedAttributes"></app-dashboard>
+      </div>
 
     <div class="ui container"
       *ngIf="stages[currentStage] === 'chooseTextbook' || stages[currentStage] === 'topicList' ">
@@ -63,13 +66,10 @@
         <app-textbook-list [selectedAttributes]="selectedAttributes" [config]="programDetails.config"
           (selectedTextbookEvent)="selectedTextbookHandler($event)"></app-textbook-list>
       </div>
-      <div *ngIf="stages[currentStage] === 'topicList' && !showDashboard">
+      <div *ngIf="stages[currentStage] === 'topicList'">
         <app-chapter-list [topicList]="topicList" [selectedAttributes]="selectedAttributes"
           [selectedSchool]="selectedSchoolForReview" [role]="role"
           (selectedQuestionTypeTopic)="selectedQuestionTypeTopic($event)" (selectedTemplate)="selectedTemplatehandler($event)"></app-chapter-list>
-      </div>
-      <div *ngIf="stages[currentStage] === 'topicList' && showDashboard">
-        <app-dashboard [selectedAttributes]="selectedAttributes"></app-dashboard>
       </div>
     </div>
 
