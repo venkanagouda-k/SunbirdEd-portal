@@ -78,6 +78,7 @@
   </table>
 </div>
 
+
 <div *ngIf="selectedReport === 'Program Level Report Status' && !showLoader">
     <table class="sb-table sb-table sb-table-hover sb-table-sortable" id='ProgramLevelReportStatus'>
       <thead class="sb-table-header heading-large">
@@ -85,15 +86,14 @@
           <th id="textbookName"> Textbook Name </th>
           <th attr.data-tooltip="{{headers[0].tip}}" *ngFor="let level of UnitLevels"> {{level}}
           </th>
-          <th attr.data-tooltip="{{headers[0].tip}}" *ngFor="let type of contentTypes"> {{type}}
+          <th attr.data-tooltip="{{headers[1].tip}}" *ngFor="let type of contentTypes"> {{type}}
             </th>
-  
         </tr>
       </thead>
+      
       <tbody class="sb-table-body body-large" >
         <tr *ngFor="let count of tableData" (click)="onSelectTextbook(count)">
-          <td> 
-              
+          <td>         
       <div class="sb-card sb-card-qr" tabindex="0">
           <div class="sb-card-body">
               <div class="sb-media">
@@ -102,11 +102,9 @@
                       <h6 class="media-heading">{{count['Textbook Name']}}</h6>
                       <p class="media-description">Class: {{count['Grade']}} <br>Subject: {{count['Subject']}}</p>
                   </div>
-                  </div>
-            
+                  </div> 
           </div>
         </div>
-        
             </td>
             <td *ngFor="let level of UnitLevels">{{count.level[level] ? count.level[level] : 0}}</td>
             <td *ngFor="let content of contentTypes">{{count.content[content] ? count.content[content] : 0}}</td>

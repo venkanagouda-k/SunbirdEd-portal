@@ -438,7 +438,7 @@ export class DashboardComponent implements OnInit {
     } else if (report === this.reports[1].name) {
       this.headers = [{ tip: 'No. of resource (no. of published questions)' }];
     } else {
-      this.headers = [{ tip: 'No. of resource (no. of published questions)' }];
+      this.headers = [{ tip: 'No. of TextbookUnits present in level' }, { tip: 'No. of contentTypes present in textbook' }];
     }
   }
 
@@ -448,7 +448,7 @@ export class DashboardComponent implements OnInit {
     if (report === this.reports[0].name) {
       Tdata = _.map(this.textBookChapters, (item) => {
         const result = {};
-        result['Topic Name'] = item.name + '(' + item.topic + ')';
+        result['Topic Name'] = item.name;
         // tslint:disable-next-line:max-line-length
         result[this.headers[0].name] = (item[this.selectedCategory] && item[this.selectedCategory].review) ? item[this.selectedCategory].review : 0;
         // tslint:disable-next-line:max-line-length
@@ -464,7 +464,7 @@ export class DashboardComponent implements OnInit {
     } else if (report === this.reports[1].name) {
       Tdata = _.map(this.textBookChapters, (item) => {
         const result = {};
-        result['Topic Name'] = item.name + '(' + item.topic + ')';
+        result['Topic Name'] = item.name;
         // tslint:disable-next-line:max-line-length
         result[this.questionTypeName[this.questionType[0]]] = (item[this.questionType[0]] && item[this.questionType[0]].published) ? item[this.questionType[0]].published : 0;
         // tslint:disable-next-line:max-line-length
