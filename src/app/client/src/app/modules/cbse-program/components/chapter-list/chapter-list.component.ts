@@ -40,6 +40,8 @@ export class ChapterListComponent implements OnInit, OnChanges {
   public templateDetails;
   public unitIdentifier;
   public collection: any;
+  contentId: string;
+  prevUnitSelect: string;
   private labels: Array<string>;
   private actions: any;
   private componentMapping = {
@@ -56,6 +58,7 @@ export class ChapterListComponent implements OnInit, OnChanges {
   public collectionData;
   showLoader = true;
   showError = false;
+  showLargeModal;
   public questionPattern: Array<any> = [];
   constructor(public publicDataService: PublicDataService, private configService: ConfigService,
     private userService: UserService, public actionService: ActionService,
@@ -228,6 +231,16 @@ export class ChapterListComponent implements OnInit, OnChanges {
     switch (event.action) {
       case 'delete':
         this.removeResourceToHierarchy(event.contentId, event.unitIdentifier);
+        break;
+        case 'beforeMove':
+        this.showLargeModal = true;
+        this.contentId = event.contentId;
+        this.prevUnitSelect = event.unitIdentifier;
+        break;
+        case 'afterMove':
+        this.showLargeModal = false;
+        this.unitIdentifier = '';
+        this.contentId = ''; // Clearing selected unit/content details
         break;
       default:
           this.showResourceTemplatePopup = event.showPopup;

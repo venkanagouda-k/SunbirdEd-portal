@@ -21,7 +21,7 @@
               <div class="px-8 w-auto"><span class="sb-dotmenu"></span></div>
               <div class="menu" suiDropdownMenu>
                 <div class="item">Preview</div>
-                <div class="item" (click)="showLargeModal = !showLargeModal">Move</div>
+                <div class="item" (click)="moveResource($event, content.identifier, collection.identifier)">Move</div>
 
                 <div class="item" (click)="deleteResource($event, content.identifier, collection.identifier)">Delete</div>
               </div>

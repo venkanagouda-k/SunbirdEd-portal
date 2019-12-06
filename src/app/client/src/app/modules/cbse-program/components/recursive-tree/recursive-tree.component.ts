@@ -44,4 +44,12 @@ export class RecursiveTreeComponent implements OnInit {
       unitIdentifier: unitIdentifier
     });
   }
+
+  moveResource(e, contentId, unitIdentifier) {
+    this.resourceTemplate.emit({
+      action: 'beforeMove',
+      contentId: contentId,
+      unitIdentifier: unitIdentifier
+    });
+  }
 }
