@@ -11,6 +11,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
+            "preserveSymlinks": true,
             "outputPath": "../dist",
             "index": "src/index.html",
             "main": "src/main.ts",
@@ -66,11 +67,9 @@
               "node_modules/@project-sunbird/telemetry-sdk/index.js",
               "src/assets/libs/semantic-ui/sidebar.min.js",
               "node_modules/leaflet/dist/leaflet.js",
-              {
-                "input": "node_modules/jquery.fancytree/dist/jquery.fancytree-all-deps.min.js",
-                "lazy": true,
-                "bundleName": "fancytree-all-deps"
-              },
+              "node_modules/jquery.fancytree/dist/jquery.fancytree-all-deps.min.js",
+              "src/assets/libs/semantic-ui/modal.min.js",
+              "src/assets/libs/semantic-ui-tree-picker/semantic-ui-tree-picker.js",
               {
                 "input": "src/assets/libs/semantic-ui/transition.min.js",
                 "lazy": true,
@@ -88,11 +87,6 @@
               },
               {
                 "input": "src/assets/libs/semantic-ui/dimmer.min.js",
-                "lazy": true,
-                "bundleName": "semanticModal"
-              },
-              {
-                "input": "src/assets/libs/semantic-ui/modal.min.js",
                 "lazy": true,
                 "bundleName": "semanticModal"
               }
