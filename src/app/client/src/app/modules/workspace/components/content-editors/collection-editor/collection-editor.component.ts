@@ -65,6 +65,9 @@ export class CollectionEditorComponent implements OnInit, OnDestroy {
     this.userProfile = this.userService.userProfile;
     this.routeParams = this.activatedRoute.snapshot.params;
     this.queryParams = this.activatedRoute.snapshot.queryParams;
+    if (this.routeParams.type === 'Course') {
+      return this.router.navigate(['workspace/edit/', 'Course', this.routeParams.contentId]);
+    }
     this.disableBrowserBackButton();
     this.frameworkService.initialize();
     this.getDetails().pipe(

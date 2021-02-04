@@ -45,10 +45,16 @@ export class NewCollectionEditorComponent implements OnInit {
 
   getFrameWorkDetails() {
     this.getCategoryDefinition().subscribe(data => {
+      // data.result.objectCategoryDefinition.objectMetadata.config = {
+      //   "frameworkMetadata": {
+      //     "orgFWType": "K-12",
+      //     "targetFWType": "TPD"
+      //   }
+      // };
       // tslint:disable-next-line:max-line-length
       if (_.get(data, 'result.objectCategoryDefinition.objectMetadata.schema') || _.get(data, 'result.objectCategoryDefinition.objectMetadata.config')) {
-        const orgFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.framework.default');
-        const targetFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.targetFWIds.default');
+        const orgFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.framework.default');
+        const targetFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.targetFWIds.default');
         if (orgFramework) {
           this.setFrameworkToEditorConfig({orgFramework});
         } else {
@@ -70,16 +76,31 @@ export class NewCollectionEditorComponent implements OnInit {
   getFrameworkByConfig(categoryDefdata, type) {
     const frameWorkType = _.get(categoryDefdata, `objectMetadata.config.frameworkMetadata.${type}`);
     if (frameWorkType) {
-      this.getDefaultFramework(frameWorkType).subscribe(data => {
+      this.getDefaultFramework(frameWorkType, true).subscribe(data => {
         console.log(data, 'composite search data');
-        // this.setFrameworkToEditorConfig();
+        if (!_.get(data, 'result.count')) {
+          this.getDefaultFramework(frameWorkType, false).subscribe(res => {
+            this.frameworkByType(type, res);
+          });
+        } else {
+          this.frameworkByType(type, data);
+        }
       });
     } else {
       alert('Please set proper framework');
     }
   }
 
-  getDefaultFramework(type) {
+  frameworkByType(type, resData) {
+    if (type === 'orgFWType') {
+      this.setFrameworkToEditorConfig({orgFramework: _.get(resData, 'result.Framework[0].identifier')});
+
+    } else if (type === 'targetFWType') {
+      this.setFrameworkToEditorConfig({targetFramework: _.get(resData, 'result.Framework[0].identifier')});
+    }
+  }
+
+  getDefaultFramework(type, channel: boolean) {
     const option = {
       url: `${this.config.urlConFig.URLS.COMPOSITE.SEARCH}`,
       'data': {
@@ -87,8 +108,8 @@ export class NewCollectionEditorComponent implements OnInit {
             'filters': {
                 'objectType': 'Framework',
                 'type': type,
-                'channel': this.userService.channel,
-                'status': 'Live'
+                'status': 'Live',
+                ...(channel && {channel: this.userService.channel})
             },
             'limit': 10
         }
@@ -110,8 +131,8 @@ export class NewCollectionEditorComponent implements OnInit {
       context: {
         identifier: 'do_113193433773948928111',
         channel: this.userService.channel,
-        framework: 'tn_k-12',
-        targetFWIds: ['ekstep_ncert_k-12'],
+        framework: '',
+        targetFWIds: [],
         authToken: ' ',
         sid: this.userService.sessionId,
         did: this.deviceId,
