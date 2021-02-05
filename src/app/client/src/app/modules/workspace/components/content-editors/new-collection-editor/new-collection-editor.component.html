@@ -1,3 +1,6 @@
-<ng-container *ngIf="editorConfig">
-    <lib-editor-base [editorConfig]="editorConfig" ></lib-editor-base>
+<ng-container *ngIf="!showLoader && editorConfig">
+    <lib-editor-base [editorConfig]="editorConfig" (editorEmitter)="editorEventListener($event)"></lib-editor-base>
 </ng-container>
+<sui-dimmer class="page" *ngIf="showLoader" [isDimmed]="showLoader">
+  <div class="ui text loader"><h2>Loading...</h2></div>
+</sui-dimmer>

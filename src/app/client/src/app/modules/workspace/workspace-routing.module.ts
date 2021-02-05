@@ -266,7 +266,7 @@ const routes: Routes = [
     ]
   },
   {
-    path: 'edit/:type/:contentId', component: NewCollectionEditorComponent, canActivate: [AuthGuard],
+    path: 'edit/:type/:contentId/:state', component: NewCollectionEditorComponent, canActivate: [AuthGuard],
     data: {
       roles: 'workspace',
       breadcrumbs: [{ label: 'Home', url: '/home' }, { label: 'Profile', url: '/profile' }, { label: 'My Workspace', url: '' }],

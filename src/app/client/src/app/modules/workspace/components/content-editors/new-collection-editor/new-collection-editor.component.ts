@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { UserService, PublicDataService, ContentService } from '@sunbird/core';
 import { TelemetryService } from '@sunbird/telemetry';
-import { ConfigService } from '@sunbird/shared';
+import { ConfigService, NavigationHelperService } from '@sunbird/shared';
+import { ActivatedRoute, Router } from '@angular/router';
 import * as _ from 'lodash-es';
 @Component({
   selector: 'app-new-collection-editor',
@@ -13,8 +14,12 @@ export class NewCollectionEditorComponent implements OnInit {
   public deviceId: string;
   public portalVersion: string;
   public userProfile: any;
-  constructor(private userService: UserService, private telemetryService: TelemetryService, private publicDataService: PublicDataService,
-    private config: ConfigService, private contentService: ContentService) {
+  public showLoader = true;
+  private routeParams: any;
+  constructor(private userService: UserService,
+    private telemetryService: TelemetryService, private publicDataService: PublicDataService,
+    private config: ConfigService, private contentService: ContentService,
+    private activatedRoute: ActivatedRoute, private navigationHelperService: NavigationHelperService) {
     const deviceId = (<HTMLInputElement>document.getElementById('deviceId'));
     this.deviceId = deviceId ? deviceId.value : '';
     const buildNumber = (<HTMLInputElement>document.getElementById('buildNumber'));
@@ -23,6 +28,7 @@ export class NewCollectionEditorComponent implements OnInit {
 
   ngOnInit() {
     this.userProfile = this.userService.userProfile;
+    this.routeParams = this.activatedRoute.snapshot.params;
     this.setEditorConfig();
     this.getFrameWorkDetails();
   }
@@ -94,10 +100,10 @@ export class NewCollectionEditorComponent implements OnInit {
   frameworkByType(type, resData) {
     if (type === 'orgFWType') {
       this.setFrameworkToEditorConfig({orgFramework: _.get(resData, 'result.Framework[0].identifier')});
-
     } else if (type === 'targetFWType') {
       this.setFrameworkToEditorConfig({targetFramework: _.get(resData, 'result.Framework[0].identifier')});
     }
+    this.showLoader = false;
   }
 
   getDefaultFramework(type, channel: boolean) {
@@ -120,9 +126,27 @@ export class NewCollectionEditorComponent implements OnInit {
 
   setFrameworkToEditorConfig(framework) {
     if (_.get(framework, 'orgFramework')) {
-      this.editorConfig.context.framework = _.get(framework, 'orgFramework');
+      this.editorConfig.context['framework'] = _.get(framework, 'orgFramework');
     } else if (_.get(framework, 'targetFramework')) {
-      this.editorConfig.context.framework = _.get(framework, 'targetFramework');
+      this.editorConfig.context['targetFWIds'] = _.get(framework, 'targetFramework');
+    }
+    if (this.editorConfig.context.framework && this.editorConfig.context.targetFWIds) {
+      this.showLoader = false;
+    }
+  }
+
+  editorEventListener(event) {
+    console.log(event);
+    this.redirectToWorkSpace();
+  }
+
+  redirectToWorkSpace () {
+    if (this.routeParams.state === 'collaborating-on') {
+      this.navigationHelperService.navigateToWorkSpace('/workspace/content/collaborating-on/1');
+    } else if ( this.routeParams.state === 'upForReview') {
+      this.navigationHelperService.navigateToWorkSpace('/workspace/content/upForReview/1');
+    } else {
+      this.navigationHelperService.navigateToWorkSpace('/workspace/content/draft/1');
     }
   }
 
@@ -131,8 +155,6 @@ export class NewCollectionEditorComponent implements OnInit {
       context: {
         identifier: 'do_113193433773948928111',
         channel: this.userService.channel,
-        framework: '',
-        targetFWIds: [],
         authToken: ' ',
         sid: this.userService.sessionId,
         did: this.deviceId,
