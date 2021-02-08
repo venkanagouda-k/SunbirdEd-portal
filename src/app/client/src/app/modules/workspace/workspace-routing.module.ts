@@ -37,6 +37,16 @@ const routes: Routes = [
             }
           },
           {
+            path: 'questionset', component: DataDrivenComponent,
+            data: {
+              telemetry: {
+                env: telemetryEnv, pageid: 'workspace-create-questionset', uri: '/workspace/content/create/questionset',
+                type: 'view', mode: 'create', object: { type: objectType, ver: '1.0' }
+              }, breadcrumbs: [{ label: 'Home', url: '/home' },
+              { label: 'Profile', url: '/profile' }, { label: 'My Workspace', url: '' }]
+            }
+          },
+          {
             path: 'uploadcontent', component: DataDrivenComponent,
             data: {
               telemetry: {
@@ -266,7 +276,7 @@ const routes: Routes = [
     ]
   },
   {
-    path: 'edit/:type/:contentId', component: NewCollectionEditorComponent, canActivate: [AuthGuard],
+    path: 'edit/:type/:contentId/:state/:contentStatus', component: NewCollectionEditorComponent, canActivate: [AuthGuard],
     data: {
       roles: 'workspace',
       breadcrumbs: [{ label: 'Home', url: '/home' }, { label: 'Profile', url: '/profile' }, { label: 'My Workspace', url: '' }],

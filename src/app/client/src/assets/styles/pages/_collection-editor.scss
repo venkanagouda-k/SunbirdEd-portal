@@ -8,12 +8,15 @@
 .two-column-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: 1fr 1fr;
   column-gap: 0.5rem;
   border-bottom: solid 1px var(--gray-100);
   &:last-child{
     border-bottom: none;
   }
+}
+
+.fancytree-lastsib{
+  margin-left: 20px;
 }
 
 .three-column-grid {

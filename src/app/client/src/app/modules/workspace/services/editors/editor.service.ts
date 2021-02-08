@@ -92,4 +92,15 @@ export class EditorService {
             })
         );
     }
+
+    createQuestionSet(req): Observable<ServerResponse> {
+      const option = {
+            url: 'questionset/v1/create',
+            data: {
+                'request': req
+            }
+        };
+      return this.publicDataService.post(option);
+      // return this.contentService.post(option);
+    }
 }
