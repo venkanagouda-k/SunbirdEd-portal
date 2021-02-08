@@ -23,11 +23,9 @@ module.exports = function (app) {
     // app.all('/api/content/v1/read/:id', proxyObj());
 
     // app.all('/api/asset/v1/upload/:id', proxyObj());
-
-    app.use('/api/object/category/definition/*', proxyObj());
-
-    app.all('/api/questionset/v1/*',proxyObj());
-
+    
+    app.use(['/api/questionset/*', '/api/question/*', '/api/object/*', '/api/composite*' ],proxyObj());
+    
     app.use('/api/*', proxy(contentProxyUrl, {
         proxyReqPathResolver: proxyReqPathResolverMethod
     }))
@@ -35,18 +33,20 @@ module.exports = function (app) {
 
 }
 
-
 function proxyObj() {
     return proxy(contentProxyUrl, {
         proxyReqOptDecorator: proxyUtils.decoratePublicRequestHeaders(),
         proxyReqPathResolver: function (req) {
             let urlParam = req.originalUrl;
             let query = require('url').parse(req.url).query;
-            if (query) {
-                return require('url').parse(contentProxyUrl + urlParam + '?' + query).path
-            } else {
-                return require('url').parse(contentProxyUrl + urlParam).path
-            }
+            console.log(query, 'sasdadasd ', contentProxyUrl, ' ====  ===  ', urlParam);
+            return require('url').parse(contentProxyUrl + urlParam).path
+            // if (query) {
+            //   console.log('Test ', require('url').parse(contentProxyUrl + urlParam).path);
+            //   return require('url').parse(contentProxyUrl + urlParam + '?' + query).path
+            // } else {
+            //   return require('url').parse(contentProxyUrl + urlParam).path
+            // }
         },
         userResDecorator: (proxyRes, proxyResData, req, res) => {
             try {
@@ -61,4 +61,30 @@ function proxyObj() {
         }
     })
 }
+
+// function proxyObj() {
+//     return proxy(contentProxyUrl, {
+//         proxyReqOptDecorator: proxyUtils.decoratePublicRequestHeaders(),
+//         proxyReqPathResolver: function (req) {
+//             let urlParam = req.originalUrl;
+//             let query = require('url').parse(req.url).query;
+//             if (query) {
+//                 return require('url').parse(contentProxyUrl + urlParam + '?' + query).path
+//             } else {
+//                 return require('url').parse(contentProxyUrl + urlParam).path
+//             }
+//         },
+//         userResDecorator: (proxyRes, proxyResData, req, res) => {
+//             try {
+//                 logger.info({ msg: 'proxyObj' + req.method + ' - ' + req.url });
+//                 const data = JSON.parse(proxyResData.toString('utf8'));
+//                 if (req.method === 'GET' && proxyRes.statusCode === 404 && (typeof data.message === 'string' && data.message.toLowerCase() === 'API not found with these values'.toLowerCase())) res.redirect('/')
+//                 else return proxyUtils.handleSessionExpiry(proxyRes, proxyResData, req, res, data);
+//             } catch (err) {
+//                 logger.error({ msg: 'Error occurred while featching the data' });
+//                 return proxyUtils.handleSessionExpiry(proxyRes, proxyResData, req, res);
+//             }
+//         }
+//     })
+// }
 
