@@ -6,7 +6,7 @@ import {
 } from '@sunbird/shared';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EditorService } from './../../services';
-import { SearchService, UserService, FrameworkService, FormService } from '@sunbird/core';
+import { SearchService, UserService, FrameworkService, FormService, PublicDataService } from '@sunbird/core';
 import * as _ from 'lodash-es';
 import { CacheService } from 'ng2-cache-service';
 import { DefaultTemplateComponent } from '../content-creation-default-template/content-creation-default-template.component';
@@ -15,6 +15,7 @@ import { WorkSpace } from '../../classes/workspace';
 import { WorkSpaceService } from '../../services';
 import { combineLatest, Subscription, Subject, of, throwError } from 'rxjs';
 import { takeUntil, first, mergeMap, map, tap , filter, catchError} from 'rxjs/operators';
+import { UUID } from 'angular2-uuid';
 @Component({
   selector: 'app-data-driven',
   templateUrl: './data-driven.component.html',
@@ -131,7 +132,8 @@ export class DataDrivenComponent extends WorkSpace implements OnInit, OnDestroy,
     private _cacheService: CacheService,
     public navigationHelperService: NavigationHelperService,
     public browserCacheTtlService: BrowserCacheTtlService,
-    public telemetryService: TelemetryService
+    public telemetryService: TelemetryService,
+    public publicDataService: PublicDataService
   ) {
     super(searchService, workSpaceService, userService);
     this.activatedRoute = activatedRoute;
@@ -189,6 +191,21 @@ export class DataDrivenComponent extends WorkSpace implements OnInit, OnDestroy,
         if (_.lowerCase(this.contentType) !== 'course') {
           this.framework = frameworkData.frameworkdata['defaultFramework'].code;
         }
+        if (_.lowerCase(this.contentType) === 'questionset') {
+          const option = {
+            url: 'questionset/v1/create',
+            data: {
+                'request': this.generateQuestionSetData()
+            }
+          };
+          this.publicDataService.post(option).subscribe(res => {
+            // tslint:disable-next-line:max-line-length
+            this.router.navigate(['workspace/edit/', 'QuestionSet', res.result.identifier, 'draft', 'Draft']);
+            // this.createLockAndNavigateToEditor({identifier: res.result.content_id});
+          }, err => {
+            this.toasterService.error(this.resourceService.messages.fmsg.m0010);
+          });
+        }
         const categoryList = {
           'code' : 'primaryCategory',
           'identifier': 'sb_primaryCategory',
@@ -225,6 +242,26 @@ export class DataDrivenComponent extends WorkSpace implements OnInit, OnDestroy,
         this.toasterService.error(this.resourceService.messages.emsg.m0005);
       }
     });
+  }
+
+  generateQuestionSetData() {
+    let name = this.userService.userProfile.firstName;
+    if (!_.isEmpty(this.userService.userProfile.lastName)) {
+      name = this.userService.userProfile.firstName + ' ' + this.userService.userProfile.lastName;
+    }
+    return {
+        'questionset': {
+          name: 'Untitled QuestionSet',
+          mimeType: 'application/vnd.sunbird.questionset',
+          primaryCategory: 'Practice Question Set',
+          createdBy: this.userService.userProfile.id,
+          // organisation: _.uniq(this.userService.orgNames),
+          createdFor: this.userService.userProfile.organisationIds,
+          framework: this.framework,
+          // creator: name,
+          code: UUID.UUID()
+        }
+    };
   }
 
   /**

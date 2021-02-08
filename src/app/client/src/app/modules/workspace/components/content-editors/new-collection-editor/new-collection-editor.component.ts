@@ -1,9 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { UserService, PublicDataService, ContentService } from '@sunbird/core';
+import { UserService, PublicDataService, ContentService, FrameworkService } from '@sunbird/core';
 import { TelemetryService } from '@sunbird/telemetry';
 import { ConfigService, NavigationHelperService } from '@sunbird/shared';
+import { EditorService, WorkSpaceService } from './../../../services';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as _ from 'lodash-es';
+import { first, mergeMap, tap } from 'rxjs/operators';
+import { of } from 'rxjs';
 @Component({
   selector: 'app-new-collection-editor',
   templateUrl: './new-collection-editor.component.html',
@@ -16,9 +19,13 @@ export class NewCollectionEditorComponent implements OnInit {
   public userProfile: any;
   public showLoader = true;
   private routeParams: any;
+  public queryParams: object;
+  public collectionDetails: any;
+  public showQuestionEditor = false;
   constructor(private userService: UserService,
     private telemetryService: TelemetryService, private publicDataService: PublicDataService,
     private config: ConfigService, private contentService: ContentService,
+    public editorService: EditorService, public workSpaceService: WorkSpaceService, public frameworkService: FrameworkService,
     private activatedRoute: ActivatedRoute, private navigationHelperService: NavigationHelperService) {
     const deviceId = (<HTMLInputElement>document.getElementById('deviceId'));
     this.deviceId = deviceId ? deviceId.value : '';
@@ -27,10 +34,23 @@ export class NewCollectionEditorComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.routeParams = this.activatedRoute.snapshot.params;
+    this.queryParams = this.activatedRoute.snapshot.queryParams;
     this.userProfile = this.userService.userProfile;
     this.routeParams = this.activatedRoute.snapshot.params;
-    this.setEditorConfig();
-    this.getFrameWorkDetails();
+    this.getCollectionDetails().subscribe(data => {
+        console.log(data);
+        this.collectionDetails = data.result.content;
+        this.showQuestionEditor = this.collectionDetails.mimeType === 'application/vnd.sunbird.questionset' ? true : false;
+        this.getFrameWorkDetails();
+        this.setEditorConfig();
+      });
+  }
+
+  private getCollectionDetails() {
+    const options: any = { params: {} };
+    options.params.mode = 'edit';
+    return this.editorService.getContent(this.routeParams.contentId, options);
   }
 
   getCategoryDefinition() {
@@ -39,8 +59,8 @@ export class NewCollectionEditorComponent implements OnInit {
       data: {
         request: {
           objectCategoryDefinition: {
-              objectType: 'Collection',
-              name: 'Course',
+              objectType: this.collectionDetails.mimeType === 'application/vnd.sunbird.questionset' ? 'QuestionSet' : 'Collection',
+              name: this.collectionDetails.primaryCategory,
               channel: this.userService.channel
           }
         }
@@ -58,21 +78,25 @@ export class NewCollectionEditorComponent implements OnInit {
       //   }
       // };
       // tslint:disable-next-line:max-line-length
-      if (_.get(data, 'result.objectCategoryDefinition.objectMetadata.schema') || _.get(data, 'result.objectCategoryDefinition.objectMetadata.config')) {
-        const orgFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.framework.default');
-        const targetFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.targetFWIds.default');
-        if (orgFramework) {
-          this.setFrameworkToEditorConfig({orgFramework});
+      if (!this.showQuestionEditor) {
+        if ( _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema') || _.get(data, 'result.objectCategoryDefinition.objectMetadata.config')) {
+          const orgFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.framework.default');
+          const targetFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.targetFWIds.default');
+          if (orgFramework) {
+            this.setFrameworkToEditorConfig({orgFramework});
+          } else {
+            this.getFrameworkByConfig(_.get(data, 'result.objectCategoryDefinition'), 'orgFWType');
+          }
+          if (targetFramework) {
+            this.setFrameworkToEditorConfig({targetFramework});
+          } else {
+            this.getFrameworkByConfig(_.get(data, 'result.objectCategoryDefinition'), 'targetFWType');
+          }
         } else {
-          this.getFrameworkByConfig(_.get(data, 'result.objectCategoryDefinition'), 'orgFWType');
-        }
-        if (targetFramework) {
-          this.setFrameworkToEditorConfig({targetFramework});
-        } else {
-          this.getFrameworkByConfig(_.get(data, 'result.objectCategoryDefinition'), 'targetFWType');
+          alert('Please set proper framework');
         }
       } else {
-        alert('Please set proper framework');
+        this.showLoader = false;
       }
     }, err => {
       console.log('err--->', err);
@@ -151,11 +175,13 @@ export class NewCollectionEditorComponent implements OnInit {
   }
 
   setEditorConfig() {
+    // tslint:disable-next-line:max-line-length
+    const primaryCategories = _.concat(this.frameworkService['_channelData'].contentPrimaryCategories, this.frameworkService['_channelData'].collectionPrimaryCategories);
     this.editorConfig = {
       context: {
-        identifier: 'do_113193433773948928111',
+        identifier: this.routeParams.contentId,
         channel: this.userService.channel,
-        authToken: ' ',
+        authToken: '',
         sid: this.userService.sessionId,
         did: this.deviceId,
         uid: this.userService.userid,
@@ -266,43 +292,68 @@ export class NewCollectionEditorComponent implements OnInit {
           'https://dockstorage.blob.core.windows.net/sunbird-content-dock/']
       },
       config: {
-        mode: 'edit',
-        maxDepth: 2,
-        objectType: 'Collection',
-        primaryCategory: 'Course',
-        isRoot: true,
-        iconClass: 'fa fa-book',
-        children: {},
-        hierarchy: {
-            level1: {
-                name: 'Chapter',
-                type: 'Unit',
-                mimeType: 'application/vnd.ekstep.content-collection',
-                contentType: 'Textbook Unit',
-                iconClass: 'fa fa-folder-o',
-                children: {}
-            },
-            level2: {
-                name: 'Sub-Chapter',
-                type: 'Unit',
-                mimeType: 'application/vnd.ekstep.content-collection',
-                contentType: 'Textbook Unit',
-                iconClass: 'fa fa-folder-o',
-                children: {
-                    Content: [
-                        'Explanation Content',
-                        'Learning Resource',
-                        'eTextbook',
-                        'Teacher Resource',
-                        'Course Assessment'
-                    ],
-                    QuestionSet: [
-                        'Practice Question Set'
-                    ]
-                }
-            }
-        }
+        mode: this.routeParams.contentStatus.toLowerCase()  === 'draft' ? 'edit' : 'review'
+      }
+    };
+    if (this.collectionDetails && !this.showQuestionEditor) {
+      this.editorConfig.config = _.assign(this.editorConfig.config, this.getCourseConfig());
+    } else {
+      this.editorConfig.config = _.assign(this.editorConfig.config, this.getQuestionSetConfig());
+    }
+  }
+
+  getQuestionSetConfig() {
+    return {
+      maxDepth: 0,
+      objectType: 'QuestionSet',
+      primaryCategory: 'Practice Question Set',
+      isRoot: true,
+      iconClass: 'fa fa-book',
+      children: {
+        Question: [
+          'Multiple Choice Question',
+          'Subjective Question'
+        ]
+      },
+      hierarchy: {}
+    };
+  }
+
+  getCourseConfig() {
+    return {
+      maxDepth: 2,
+      objectType: 'Collection',
+      primaryCategory: 'Course',
+      isRoot: true,
+      iconClass: 'fa fa-book',
+      children: {},
+      hierarchy: {
+          level1: {
+              name: 'Module',
+              type: 'Unit',
+              mimeType: 'application/vnd.ekstep.content-collection',
+              contentType: 'Course Unit',
+              iconClass: 'fa fa-folder-o',
+              children: {}
+          },
+          level2: {
+              name: 'Sub-Module',
+              type: 'Unit',
+              mimeType: 'application/vnd.ekstep.content-collection',
+              contentType: 'Course Unit',
+              iconClass: 'fa fa-folder-o',
+              children: {
+                  Content: [
+                      'Explanation Content',
+                      'Learning Resource',
+                      'eTextbook',
+                      'Teacher Resource',
+                      'Course Assessment'
+                  ]
+              }
+          }
       }
     };
   }
+
 }
