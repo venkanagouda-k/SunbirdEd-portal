@@ -298,6 +298,7 @@ export class NewCollectionEditorComponent implements OnInit {
     if (this.collectionDetails && !this.showQuestionEditor) {
       this.editorConfig.config = _.assign(this.editorConfig.config, this.getCourseConfig());
     } else {
+      this.editorConfig.context.framework = this.frameworkService['_channelData'].defaultFramework;
       this.editorConfig.config = _.assign(this.editorConfig.config, this.getQuestionSetConfig());
     }
   }
