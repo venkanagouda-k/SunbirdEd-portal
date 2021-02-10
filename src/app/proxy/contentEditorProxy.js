@@ -139,6 +139,109 @@ module.exports = function (app) {
       userResDecorator: userResDecorator
     })
   )
+  // Question & QuestionSet API's START
+  app.get('/action/questionset/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        console.log('GET originalUrl ', originalUrl, require('url').parse(learnerURL + originalUrl).path);
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  app.post('/action/questionset/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  app.patch('/action/questionset/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  app.get('/action/question/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  app.post('/action/question/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        console.log('POST question  ', originalUrl, require('url').parse(learnerURL + originalUrl).path);
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  app.patch('/action/question/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  app.post('/action/object/category/definition/v1/*',
+    addCorsHeaders,
+    proxyUtils.verifyToken(),
+    proxy(learnerURL, {
+      limit: reqDataLimitOfContentUpload,
+      proxyReqOptDecorator: proxyUtils.decorateRequestHeaders(learnerURL),
+      proxyReqPathResolver: function (req) {
+        let originalUrl = req.originalUrl.replace('/action/', '')
+        console.log('GET categoryDefinition ', originalUrl, require('url').parse(learnerURL + originalUrl).path);
+        return require('url').parse(learnerURL + originalUrl).path
+      },
+      userResDecorator: userResDecorator
+    })
+  )
+
+  // Question & QuestionSet API's END
 
   app.post('/action/content/v3/upload/*',
     isAPIWhitelisted.isAllowed(),
