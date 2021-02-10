@@ -44,16 +44,23 @@
                 "glob": "**/*",
                 "input": "node_modules/@project-sunbird/sunbird-video-player-v8/lib/assets/",
                 "output": "/assets/"
+              },
+              {
+                "glob": "**/*",
+                "input": "./node_modules/question-editor-library-v8/lib/assets/",
+                "output": "/assets/"
               }
             ],
             "styles": [
+              "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "node_modules/datatables.net-dt/css/jquery.dataTables.min.css",
               "src/assets/styles/semantic/semantic.min.css",
               "node_modules/font-awesome/css/font-awesome.css",
-              "./node_modules/@project-sunbird/sb-styles/assets/_styles.scss",
+              "node_modules/@project-sunbird/sb-styles/assets/_styles.scss",
               "./node_modules/leaflet/dist/leaflet.css",
               "src/assets/styles/styles.scss",
-              "node_modules/video.js/dist/video-js.min.css"
+              "node_modules/video.js/dist/video-js.min.css",
+              "node_modules/katex/dist/katex.min.css"
             ],
             "stylePreprocessorOptions": {
               "includePaths": [
@@ -65,6 +72,7 @@
               "node_modules/jquery/dist/jquery.min.js",
               "node_modules/slick-carousel/slick/slick.min.js",
               "node_modules/@project-sunbird/telemetry-sdk/index.js",
+              "./node_modules/katex/dist/katex.min.js",
               "src/assets/libs/semantic-ui/sidebar.min.js",
               "node_modules/leaflet/dist/leaflet.js",
               "node_modules/jquery.fancytree/dist/jquery.fancytree-all-deps.min.js",
