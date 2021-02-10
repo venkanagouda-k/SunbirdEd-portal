@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { UserService, PublicDataService, ContentService, FrameworkService } from '@sunbird/core';
 import { TelemetryService } from '@sunbird/telemetry';
-import { ConfigService, NavigationHelperService } from '@sunbird/shared';
+import { ConfigService, NavigationHelperService, ToasterService, ResourceService } from '@sunbird/shared';
 import { EditorService, WorkSpaceService } from './../../../services';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as _ from 'lodash-es';
@@ -22,11 +22,14 @@ export class NewCollectionEditorComponent implements OnInit {
   public queryParams: object;
   public collectionDetails: any;
   public showQuestionEditor = false;
+  public hierarchyConfig: any;
   constructor(private userService: UserService,
     private telemetryService: TelemetryService, private publicDataService: PublicDataService,
     private config: ConfigService, private contentService: ContentService,
-    public editorService: EditorService, public workSpaceService: WorkSpaceService, public frameworkService: FrameworkService,
-    private activatedRoute: ActivatedRoute, private navigationHelperService: NavigationHelperService) {
+    public editorService: EditorService, public workSpaceService: WorkSpaceService,
+    public frameworkService: FrameworkService, public toasterService: ToasterService,
+    private activatedRoute: ActivatedRoute, private navigationHelperService: NavigationHelperService,
+    public resourceService: ResourceService) {
     const deviceId = (<HTMLInputElement>document.getElementById('deviceId'));
     this.deviceId = deviceId ? deviceId.value : '';
     const buildNumber = (<HTMLInputElement>document.getElementById('buildNumber'));
@@ -43,7 +46,6 @@ export class NewCollectionEditorComponent implements OnInit {
         this.collectionDetails = data.result.content;
         this.showQuestionEditor = this.collectionDetails.mimeType === 'application/vnd.sunbird.questionset' ? true : false;
         this.getFrameWorkDetails();
-        this.setEditorConfig();
       });
   }
 
@@ -53,114 +55,63 @@ export class NewCollectionEditorComponent implements OnInit {
     return this.editorService.getContent(this.routeParams.contentId, options);
   }
 
-  getCategoryDefinition() {
-    const req = {
-      url: 'object/category/definition/v1/read?fields=objectMetadata,forms,name',
-      data: {
-        request: {
-          objectCategoryDefinition: {
-              objectType: this.collectionDetails.mimeType === 'application/vnd.sunbird.questionset' ? 'QuestionSet' : 'Collection',
-              name: this.collectionDetails.primaryCategory,
-              channel: this.userService.channel
-          }
+  getFrameWorkDetails() {
+    const objectType = this.collectionDetails.mimeType === 'application/vnd.sunbird.questionset' ? 'QuestionSet' : 'Collection';
+    this.workSpaceService.getCategoryDefinition(objectType, this.collectionDetails.primaryCategory, this.userService.channel)
+    .subscribe(data => {
+      // tslint:disable-next-line:max-line-length
+      if (_.get(data, 'result.objectCategoryDefinition.objectMetadata.config')) {
+        this.hierarchyConfig = _.get(data, 'result.objectCategoryDefinition.objectMetadata.config.sourcingSettings.collection');
+        if (!_.isEmpty(this.hierarchyConfig.children)) {
+          this.hierarchyConfig.children = this.getPrimaryCategoryData(this.hierarchyConfig.children);
+        }
+        if (!_.isEmpty(this.hierarchyConfig.hierarchy)) {
+          _.forEach(this.hierarchyConfig.hierarchy, (hierarchyValue) => {
+            if (_.get(hierarchyValue, 'children')) {
+              hierarchyValue['children'] = this.getPrimaryCategoryData(_.get(hierarchyValue, 'children'));
+            }
+          });
         }
       }
-    };
-    return this.publicDataService.post(req);
-  }
-
-  getFrameWorkDetails() {
-    this.getCategoryDefinition().subscribe(data => {
-      // data.result.objectCategoryDefinition.objectMetadata.config = {
-      //   "frameworkMetadata": {
-      //     "orgFWType": "K-12",
-      //     "targetFWType": "TPD"
-      //   }
-      // };
-      // tslint:disable-next-line:max-line-length
       if (!this.showQuestionEditor) {
-        if ( _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema') || _.get(data, 'result.objectCategoryDefinition.objectMetadata.config')) {
-          const orgFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.framework.default');
-          const targetFramework = _.get(data, 'result.objectCategoryDefinition.objectMetadata.schema.properties.targetFWIds.default');
-          if (orgFramework) {
-            this.setFrameworkToEditorConfig({orgFramework});
-          } else {
-            this.getFrameworkByConfig(_.get(data, 'result.objectCategoryDefinition'), 'orgFWType');
-          }
-          if (targetFramework) {
-            this.setFrameworkToEditorConfig({targetFramework});
-          } else {
-            this.getFrameworkByConfig(_.get(data, 'result.objectCategoryDefinition'), 'targetFWType');
-          }
-        } else {
-          alert('Please set proper framework');
+        this.setEditorConfig();
+        this.editorConfig.context['framework'] = _.get(this.collectionDetails, 'framework');
+        if (_.get(this.collectionDetails, 'primaryCategory') && _.get(this.collectionDetails, 'primaryCategory') !== 'Curriculum Course') {
+          this.editorConfig.context['targetFWIds'] = _.get(this.collectionDetails, 'targetFWIds');
         }
+        this.showLoader = false;
       } else {
+        this.setEditorConfig();
         this.showLoader = false;
       }
     }, err => {
-      console.log('err--->', err);
+      this.toasterService.error(this.resourceService.messages.emsg.m0015);
     });
   }
 
-  getFrameworkByConfig(categoryDefdata, type) {
-    const frameWorkType = _.get(categoryDefdata, `objectMetadata.config.frameworkMetadata.${type}`);
-    if (frameWorkType) {
-      this.getDefaultFramework(frameWorkType, true).subscribe(data => {
-        console.log(data, 'composite search data');
-        if (!_.get(data, 'result.count')) {
-          this.getDefaultFramework(frameWorkType, false).subscribe(res => {
-            this.frameworkByType(type, res);
-          });
-        } else {
-          this.frameworkByType(type, data);
+  getPrimaryCategoryData(childrenData) {
+    _.forEach(childrenData, (value, key) => {
+      if (_.isEmpty(value)) {
+        switch (key) {
+          case 'Question':
+            childrenData[key] = this.frameworkService['_channelData'].questionPrimaryCategories || ['Multiple Choice Question', 'Subjective Question'];
+            break;
+          case 'Content':
+            childrenData[key] = this.frameworkService['_channelData'].contentPrimaryCategories;
+            break;
+          case 'Collection':
+            childrenData[key] = this.frameworkService['_channelData'].collectionPrimaryCategories;
+            break;
+          case 'QuestionSet':
+            childrenData[key] = this.frameworkService['_channelData'].questionsetPrimaryCategories;
+            break;
         }
-      });
-    } else {
-      alert('Please set proper framework');
-    }
-  }
-
-  frameworkByType(type, resData) {
-    if (type === 'orgFWType') {
-      this.setFrameworkToEditorConfig({orgFramework: _.get(resData, 'result.Framework[0].identifier')});
-    } else if (type === 'targetFWType') {
-      this.setFrameworkToEditorConfig({targetFramework: _.get(resData, 'result.Framework[0].identifier')});
-    }
-    this.showLoader = false;
-  }
-
-  getDefaultFramework(type, channel: boolean) {
-    const option = {
-      url: `${this.config.urlConFig.URLS.COMPOSITE.SEARCH}`,
-      'data': {
-        'request': {
-            'filters': {
-                'objectType': 'Framework',
-                'type': type,
-                'status': 'Live',
-                ...(channel && {channel: this.userService.channel})
-            },
-            'limit': 10
-        }
-    }
-      };
-      return this.contentService.post(option);
-  }
-
-  setFrameworkToEditorConfig(framework) {
-    if (_.get(framework, 'orgFramework')) {
-      this.editorConfig.context['framework'] = _.get(framework, 'orgFramework');
-    } else if (_.get(framework, 'targetFramework')) {
-      this.editorConfig.context['targetFWIds'] = _.get(framework, 'targetFramework');
-    }
-    if (this.editorConfig.context.framework && this.editorConfig.context.targetFWIds) {
-      this.showLoader = false;
-    }
+      }
+    });
+    return childrenData;
   }
 
   editorEventListener(event) {
-    console.log(event);
     this.redirectToWorkSpace();
   }
 
@@ -169,6 +120,8 @@ export class NewCollectionEditorComponent implements OnInit {
       this.navigationHelperService.navigateToWorkSpace('/workspace/content/collaborating-on/1');
     } else if ( this.routeParams.state === 'upForReview') {
       this.navigationHelperService.navigateToWorkSpace('/workspace/content/upForReview/1');
+    } else if ( this.routeParams.state === 'allcontent') {
+      this.navigationHelperService.navigateToWorkSpace('/workspace/content/allcontent/1');
     } else {
       this.navigationHelperService.navigateToWorkSpace('/workspace/content/draft/1');
     }
@@ -176,7 +129,7 @@ export class NewCollectionEditorComponent implements OnInit {
 
   setEditorConfig() {
     // tslint:disable-next-line:max-line-length
-    const primaryCategories = _.concat(this.frameworkService['_channelData'].contentPrimaryCategories, this.frameworkService['_channelData'].collectionPrimaryCategories);
+    const additionalCategories = _.merge(this.frameworkService['_channelData'].contentAdditionalCategories, this.frameworkService['_channelData'].collectionAdditionalCategories) || this.config.appConfig.WORKSPACE.primaryCategory;
     this.editorConfig = {
       context: {
         identifier: this.routeParams.contentId,
@@ -185,175 +138,48 @@ export class NewCollectionEditorComponent implements OnInit {
         sid: this.userService.sessionId,
         did: this.deviceId,
         uid: this.userService.userid,
-        additionalCategories: [
-          {
-            value: 'Classroom Teaching Video',
-            label: 'Classroom Teaching Video'
-          },
-          {
-            value: 'Concept Map',
-            label: 'Concept Map'
-          },
-          {
-            value: 'Curiosity Question Set',
-            label: 'Curiosity Question Set'
-          },
-          {
-            value: 'Textbook',
-            label: 'Textbook'
-          },
-          {
-            value: 'Experiential Resource',
-            label: 'Experiential Resource'
-          },
-          {
-            value: 'Explanation Video',
-            label: 'Explanation Video'
-          },
-          {
-            value: 'Focus Spot',
-            label: 'Focus Spot'
-          },
-          {
-            value: 'Learning Outcome Definition',
-            label: 'Learning Outcome Definition'
-          },
-          {
-            value: 'Marking Scheme Rubric',
-            label: 'Marking Scheme Rubric'
-          },
-          {
-            value: 'Pedagogy Flow',
-            label: 'Pedagogy Flow'
-          },
-          {
-            value: 'Lesson Plan',
-            label: 'Lesson Plan'
-          },
-          {
-            value: 'Previous Board Exam Papers',
-            label: 'Previous Board Exam Papers'
-          },
-          {
-            value: 'TV Lesson',
-            label: 'TV Lesson'
-          }
-        ],
+        additionalCategories: additionalCategories,
         pdata: {
           id: this.userService.appId,
           ver: this.portalVersion,
           pid: 'sunbird-portal'
         },
+        actor: {
+          id: this.userService.userid || 'anonymous',
+          type: 'User'
+        },
         contextRollup: this.telemetryService.getRollUpData(this.userProfile.organisationIds),
         tags: this.userService.dims,
-        cdata: [
-          {
-            id: '01307938306521497658',
-            type: 'sourcing_organization',
-          },
-          {
-            type: 'project',
-            id: 'ec5cc850-3f71-11eb-aae1-fb99d9fb6737',
-          },
-          {
-            type: 'linked_collection',
-            id: 'do_113140468925825024117'
-          }
-        ],
         timeDiff: this.userService.getServerTimeDiff,
-        objectRollup: {
-            l1: 'do_113140468925825024117',
-            l2: 'do_113140468926914560125'
-        },
-        host: '',
-        defaultLicense: [
-          {
-            identifier: 'cc-by-4.0',
-            lastStatusChangedOn: '2020-03-22T16:03:38.003+0000',
-            consumerId: '9f1bd4a1-c617-422b-8d5a-d24c7d3ade2e',
-            description: 'For details see below:',
-            graph_id: 'domain',
-            nodeType: 'DATA_NODE',
-            createdOn: '2020-03-22T16:03:38.003+0000',
-            url: 'https://creativecommons.org/licenses/by/4.0/legalcode',
-            versionKey: '1584893018003',
-            objectType: 'License',
-            name: 'CC BY 4.0',
-            lastUpdatedOn: '2020-03-22T16:03:38.003+0000',
-            status: 'Live',
-            node_id: 60
-          }
-        ],
+        defaultLicense: this.frameworkService.getDefaultLicense(),
         endpoint: '/data/v3/telemetry',
         env: 'collection_editor',
-        aws_s3_urls : [
-          'https://s3.ap-south-1.amazonaws.com/ekstep-public-qa/',
-          'https://ekstep-public-qa.s3-ap-south-1.amazonaws.com/',
-          'https://dockstorage.blob.core.windows.net/sunbird-content-dock/']
+        user: {
+          id: this.userService.userid,
+          orgIds: this.userProfile.organisationIds,
+          organisations: this.userService.orgIdNameMap,
+          name : !_.isEmpty(this.userProfile.lastName) ? this.userProfile.firstName + ' ' + this.userProfile.lastName :
+          this.userProfile.firstName,
+          isRootOrgAdmin: this.userService.userProfile.rootOrgAdmin
+        },
+        channelData: this.frameworkService['_channelData'],
+        cloudStorageUrls : this.userService.cloudStorageUrls
       },
       config: {
-        mode: this.routeParams.contentStatus.toLowerCase()  === 'draft' ? 'edit' : 'review'
+        mode: this.getEditorMode()
       }
     };
-    if (this.collectionDetails && !this.showQuestionEditor) {
-      this.editorConfig.config = _.assign(this.editorConfig.config, this.getCourseConfig());
-    } else {
-      this.editorConfig.config = _.assign(this.editorConfig.config, this.getQuestionSetConfig());
+    this.editorConfig.config = _.assign(this.editorConfig.config, this.hierarchyConfig);
+  }
+
+  private getEditorMode() {
+    const contentStatus = this.collectionDetails.status.toLowerCase();
+    if (contentStatus === 'draft' || contentStatus === 'live') {
+      return 'edit';
     }
-  }
-
-  getQuestionSetConfig() {
-    return {
-      maxDepth: 0,
-      objectType: 'QuestionSet',
-      primaryCategory: 'Practice Question Set',
-      isRoot: true,
-      iconClass: 'fa fa-book',
-      children: {
-        Question: [
-          'Multiple Choice Question',
-          'Subjective Question'
-        ]
-      },
-      hierarchy: {}
-    };
-  }
-
-  getCourseConfig() {
-    return {
-      maxDepth: 2,
-      objectType: 'Collection',
-      primaryCategory: 'Course',
-      isRoot: true,
-      iconClass: 'fa fa-book',
-      children: {},
-      hierarchy: {
-          level1: {
-              name: 'Module',
-              type: 'Unit',
-              mimeType: 'application/vnd.ekstep.content-collection',
-              contentType: 'Course Unit',
-              iconClass: 'fa fa-folder-o',
-              children: {}
-          },
-          level2: {
-              name: 'Sub-Module',
-              type: 'Unit',
-              mimeType: 'application/vnd.ekstep.content-collection',
-              contentType: 'Course Unit',
-              iconClass: 'fa fa-folder-o',
-              children: {
-                  Content: [
-                      'Explanation Content',
-                      'Learning Resource',
-                      'eTextbook',
-                      'Teacher Resource',
-                      'Course Assessment'
-                  ]
-              }
-          }
-      }
-    };
+    if (contentStatus === 'review') {
+      return 'review';
+    }
   }
 
 }

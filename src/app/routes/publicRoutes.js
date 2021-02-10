@@ -24,10 +24,6 @@ module.exports = function (app) {
 
     // app.all('/api/asset/v1/upload/:id', proxyObj());
 
-    app.use('/api/object/category/definition/*', proxyObj());
-
-    app.all('/api/questionset/v1/*',proxyObj());
-
     app.use('/api/*', proxy(contentProxyUrl, {
         proxyReqPathResolver: proxyReqPathResolverMethod
     }))
